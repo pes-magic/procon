@@ -2,6 +2,7 @@
 // Verifyed
 // https://atcoder.jp/contests/abc126/tasks/abc126_e
 // https://atcoder.jp/contests/arc036/tasks/arc036_d
+// https://atcoder.jp/contests/agc002/tasks/agc002_d
 
 class UnionFind {
 public:
