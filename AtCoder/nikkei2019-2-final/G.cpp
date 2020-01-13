@@ -1,46 +1,33 @@
 #include <iostream>
 #include <vector>
-#include <algorithm>
 
 using namespace std;
 
 class Node {
 public:
-    explicit Node(int dst, int cost) : dst(dst), cost(cost), edgeBest(0) {}
-    int dst;
-    int cost;
-    long long edgeBest;
+    explicit Node(int pos, long long cost) : pos(pos), cost(cost) {}
+    int pos;
+    long long cost;
 };
 
 class Solver {
 public:
-    explicit Solver(int N) : g(N), parent(N), depth(N), rootDist(N), bestSum(N), rootBest(N), childBest(N), parentEdgeBest(N){
-        read_();
-        firstDFS_(0, -1, 0, 0);
-        secondDFS_(0, -1, 0, 0);
+    explicit Solver(int N) : N(N), g(N), upCost(N), upBest(N), pathSum(N), subBest(N), myBest(N), depth(N), parent(N) {
+        read();
+        preSearch(0, -1, 0, 0);
+        postSearch(0, -1);
     }
     long long query(int u, int v){
-        int lca = getLCA_(u, v);
-        long long res = rootDist[u] + rootDist[v] - 2 * rootDist[lca];
-        res += rootBest[lca];
-        res += childBest[lca];
-        if(lca != u){
-            res += childBest[u];
-            int p = getParent_(u, depth[u] - depth[lca] - 1);
-            res -= parentEdgeBest[p];
-            res += bestSum[u] - bestSum[p];
-        }
-        if(lca != v){
-            res += childBest[v];
-            int p = getParent_(v, depth[v] - depth[lca] - 1);
-            res -= parentEdgeBest[p];
-            res += bestSum[v] - bestSum[p];
-        }
+        int lca = getLCA(u, v);
+        if(u == lca) swap(u, v);
+        long long res = upBest[lca];
+        res += subBest[u] + pathSum[u] - pathSum[lca];
+        if(v != lca) res += subBest[v] + pathSum[v] - pathSum[lca];
+        if(v != lca) res -= subBest[lca];
         return res;
     }
 private:
-    void read_(){
-        const int N = g.size();
+    void read(){
         for(int i=0;i<N-1;i++){
             int A, B, C; cin >> A >> B >> C;
             --A; --B;
@@ -48,71 +35,65 @@ private:
             g[B].emplace_back(A, C);
         }
     }
-    void firstDFS_(int pos, int prev, int d, long long costSum){
-        depth[pos] = d;
-        rootDist[pos] = costSum;
-        childBest[pos] = 0;
-        parentEdgeBest[pos] = 0;
-        if(prev >= 0){
+    void preSearch(int pos, int prev, long long ecost, int d){
+        // upCost, subBest, myBest, parent
+        if(prev != -1){
             parent[pos].push_back(prev);
-            int p = prev;
-            while(parent[p].size() >= parent[pos].size()){
-                parent[pos].push_back(parent[p][parent[pos].size()-1]);
-                p = parent[pos].back();
+            while(parent[parent[pos].back()].size() >= parent[pos].size()){
+                parent[pos].push_back(parent[parent[pos].back()][parent[pos].size()-1]);
             }
         }
-        for(auto& pr : g[pos]){
-            if(pr.dst == prev) continue;
-            firstDFS_(pr.dst, pos, d+1, costSum + pr.cost);
-            if(pr.cost >= 0){
-                pr.edgeBest = pr.cost + max(0LL, childBest[pr.dst]);
-            } else {
-                pr.edgeBest = max(0LL, pr.cost + childBest[pr.dst]);
-            }
-            childBest[pos] += pr.edgeBest;
-            parentEdgeBest[pr.dst] = pr.edgeBest;
+        depth[pos] = d;
+        for(auto& nd : g[pos]){
+            if(nd.pos == prev) continue;
+            preSearch(nd.pos, pos, nd.cost, d+1);
+            subBest[pos] += myBest[nd.pos];
+        }
+        upCost[pos] = ecost;
+        myBest[pos] = max(0LL, ecost + subBest[pos]);
+    }
+    void postSearch(int pos, int prev){
+        if(prev != -1){
+            long long add = subBest[prev] - myBest[pos] + upCost[pos];
+            pathSum[pos] = pathSum[prev] + add;
+            upBest[pos] = max(0LL, add + upBest[prev]);
+        }
+        for(auto& nd : g[pos]){
+            if(nd.pos == prev) continue;
+            postSearch(nd.pos, pos);
         }
     }
-    void secondDFS_(int pos, int prev, long long edgeCost, long long edgeBest){
-        bestSum[pos] = 0;
-        rootBest[pos] = 0;
-        if(prev >= 0){
-            bestSum[pos] = bestSum[prev] + childBest[prev] - edgeBest;
-            rootBest[pos] = max(0LL, rootBest[prev] + childBest[prev] - edgeBest + edgeCost);
-        }
-        for(auto& pr : g[pos]){
-            if(pr.dst == prev) continue;
-            secondDFS_(pr.dst, pos, pr.cost, pr.edgeBest);
-        }
-    }
-    int getLCA_(int u, int v){
-        if(depth[u] > depth[v]) return getLCA_(v, u);
-        v = getParent_(v, depth[v] - depth[u]);
-        if(u == v) return u;
-        for(int i=parent[u].size()-1;i>=0;i--){
-            if(i < parent[u].size() && parent[u][i] != parent[v][i]){
-                u = parent[u][i];
-                v = parent[v][i];
-            }
-        }
-        return parent[u][0];
-    }
-    int getParent_(int pos, int d){
+    int getParent(int pos, int d){
+        int res = pos;
         for(int i=0;d;i++){
-            if(d%2) pos = parent[pos][i];
+            if(d%2) res = parent[res][i];
             d /= 2;
         }
-        return pos;
+        return res;
+    }
+    int getLCA(int p, int q){
+        if(depth[p] < depth[q]) swap(p, q);
+        p = getParent(p, depth[p] - depth[q]);
+        if(p == q) return p;
+        for(int i=parent[p].size()-1;i>=0;i--){
+            if(i >= parent[p].size()) continue;
+            if(parent[p][i] != parent[q][i]){
+                p = parent[p][i];
+                q = parent[q][i];
+            }
+        }
+        return parent[p][0];
     }
 private:
+    const int N;
     vector<vector<Node>> g;
-    vector<vector<int>> parent;
+    vector<long long> upCost;
+    vector<long long> upBest;
+    vector<long long> pathSum;
+    vector<long long> subBest;
+    vector<long long> myBest;
     vector<int> depth;
-    vector<long long> rootDist;
-    vector<long long> bestSum;
-    vector<long long> rootBest;
-    vector<long long> childBest;
-    vector<long long> parentEdgeBest;
+    vector<vector<int>> parent;
 };
 
 int main(){
