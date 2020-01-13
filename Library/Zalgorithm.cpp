@@ -1,6 +1,7 @@
 // Zalgorithm
 // Verifyed
 // https://atcoder.jp/contests/abc150/tasks/abc150_f
+// https://atcoder.jp/contests/nikkei2019-2-final/tasks/nikkei2019_2_final_b
 
 vector<int> Zalgorithm(auto S){
     vector<int> res(S.size());
