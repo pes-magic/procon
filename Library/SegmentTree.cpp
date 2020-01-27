@@ -4,6 +4,7 @@
 // http://judge.u-aizu.ac.jp/onlinejudge/description.jsp?id=DSL_2_B
 // https://atcoder.jp/contests/keyence2019/tasks/keyence2019_e
 // https://atcoder.jp/contests/dwacon6th-prelims/tasks/dwacon6th_prelims_d
+// https://yukicoder.me/problems/no/875
 
 template<typename T>
 class SegTree {
@@ -34,7 +35,7 @@ private:
         T b = getImpl_(l, r, 2*idx+2, rangeM, rangeR);
         return operate(a, b);
     }
-    T update_(T& data, T val) { data += val; }
+    void update_(T& data, T val) { data += val; }
     T operate(T a, T b) { return a+b; }
     const int N;
     const T def;
