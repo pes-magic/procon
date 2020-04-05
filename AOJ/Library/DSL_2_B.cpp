@@ -1,10 +1,7 @@
-// セグメント木
-// Verifyed
-// http://judge.u-aizu.ac.jp/onlinejudge/description.jsp?id=DSL_2_A
-// http://judge.u-aizu.ac.jp/onlinejudge/description.jsp?id=DSL_2_B
-// https://atcoder.jp/contests/keyence2019/tasks/keyence2019_e
-// https://atcoder.jp/contests/dwacon6th-prelims/tasks/dwacon6th_prelims_d
-// https://yukicoder.me/problems/no/875
+#include <iostream>
+#include <vector>
+
+using namespace std;
 
 template<typename T>
 class SegTree {
@@ -45,3 +42,20 @@ private:
     const T def;
     vector<T> mVal;
 };
+
+
+int main(){
+    int n, q;
+    while(cin >> n >> q){
+        SegTree<int> seg(n, 0);
+        for(int i=0;i<q;i++){
+            int c, x, y; cin >> c >> x >> y;
+            --x;
+            if(c == 0){
+                seg.update(x, y);
+            } else {
+                cout << seg.get(x, y) << endl;
+            }
+        }
+    }
+}
