@@ -1,5 +1,6 @@
 // 接尾辞配列 (Larsson-Sadakane法)
 // Verifyed
+// https://atcoder.jp/contests/arc050/tasks/arc050_d
 // https://atcoder.jp/contests/ddcc2020-final/tasks/ddcc2020_final_c
 
 vector<int> getSuffixArray(const auto& str, int alphabetSize){
@@ -35,5 +36,23 @@ vector<int> getSuffixArray(const auto& str, int alphabetSize){
 	}
     vector<int> res(n);
 	for(int i=0;i<n;i++) res[i] = vp[i].second;
+    return res;
+}
+
+vector<int> getHeightArray(const vector<int> &SA, const auto &str){
+	int n = SA.size();
+	vector<int> rev(n);
+	for(int i=0;i<n;i++) rev[SA[i]] = i;
+    vector<int> res(n, 0);
+	int prev = 0;
+	for(int i=0;i<n;i++){
+		int idx = rev[i];
+		if(idx == n-1){ res[idx] = prev = 0; continue; }
+		idx = SA[idx+1];
+		int t = prev;
+		while(max(i, idx)+t < n && str[i+t] == str[idx+t]) t++;
+		res[rev[i]] = t;
+		prev = max(0, t-1);
+	}
     return res;
 }
