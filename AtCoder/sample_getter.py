@@ -61,12 +61,14 @@ def get_samples(session, contest_name, problem_id, problem_url):
     soup = BeautifulSoup(html.text, 'html.parser')
     if not os.path.isdir(contest_name):
         os.mkdir(contest_name)
-    with open(f'{contest_name}/{problem_id}-sample.txt', 'w') as f:
-        for tag in soup.find_all('section'):
-            h3_tag = tag.find('h3', text=re.compile('入力例'))
-            if h3_tag is None:
-                continue
+    case_id = 0
+    for tag in soup.find_all('section'):
+        h3_tag = tag.find('h3', text=re.compile('入力例'))
+        if h3_tag is None:
+            continue
+        with open(f'{contest_name}/{problem_id}-sample-{case_id:02d}.txt', 'w') as f:
             f.write(tag.find('pre').text.replace('\r', ''))
+        case_id += 1
 
 def search_problem(contest_name):
     '''
