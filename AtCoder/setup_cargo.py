@@ -22,7 +22,7 @@ if __name__ == '__main__':
 
     for id in problems:
         if not os.path.exists(f'./{id}'):
-            subprocess.run(f'cargo new {id}', shell=True)
+            subprocess.run(f'cargo new {id} --bin', shell=True)
 
     crates = [
         'num', 'num-derive', 'ndarray', 'nalgebra', 'libm',
