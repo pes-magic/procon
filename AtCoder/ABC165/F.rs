@@ -1,31 +1,17 @@
 use proconio::input;
+use superslice::Ext;
 
 fn solve(g : &Vec<Vec<usize>>, a : &Vec<u32>,
          pos : usize, prev : usize, best : usize,
          res : &mut Vec<usize>, inc : &mut Vec<u32>)
 {
-    let n = g.len();
-    let idx = if a[pos] <= inc[0] {
-        0
-    } else {
-        let mut low = 0;
-        let mut high = n-1;
-        while high - low > 1 {
-            let mid = (low+high)/2;
-            if a[pos] <= inc[mid] {
-                high = mid;
-            } else {
-                low = mid;
-            }
-        }
-        high
-    };
+    let idx = inc.lower_bound(&a[pos]);
     let cur_value = inc[idx];
     inc[idx] = a[pos];
-    res[pos] = best.max(idx + 1);
+    res[pos] = best.max(idx+1);
     for &next in &g[pos] {
         if next == prev { continue; }
-        solve(g, a, next, pos, best.max(idx+1), res, inc);
+        solve(g, a, next, pos, res[pos], res, inc);
     }
     inc[idx] = cur_value;
 }
