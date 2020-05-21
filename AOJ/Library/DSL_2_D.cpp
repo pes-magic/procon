@@ -1,8 +1,7 @@
-// 区間更新セグメント木
-// Verifyed
-// http://judge.u-aizu.ac.jp/onlinejudge/description.jsp?id=DSL_2_D
-// https://atcoder.jp/contests/nikkei2019-2-qual/tasks/nikkei2019_2_qual_d
-// https://atcoder.jp/contests/agc029/tasks/agc029_c
+#include <iostream>
+#include <vector>
+
+using namespace std;
 
 template<typename T>
 class RangeUpdateQuery {
@@ -41,3 +40,21 @@ private:
     const int N;
     vector<pair<int,T>> mVal;
 };
+
+int main(){
+    int n, q;
+    while(cin >> n >> q){
+        const int INF = 0x7FFFFFFF;
+        RangeUpdateQuery<int> ruq(n, INF);
+        for(int i=0;i<q;i++){
+            int c; cin >> c;
+            if(c == 0){
+                int s, t, x; cin >> s >> t >> x;
+                ruq.update(s, t+1, x, i);
+            } else {
+                int p; cin >> p;
+                cout << ruq.get(p) << endl;
+            }
+        }
+    }
+}
