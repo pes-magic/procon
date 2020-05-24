@@ -1,36 +1,25 @@
 #include <iostream>
 #include <vector>
-#include <algorithm>
-#include <set>
 
 using namespace std;
 
 int main(){
-    int N, MOD;
-    while(cin >> N >> MOD){
-        const int maxSize = 3*N+1;
-        vector<long long> inv(maxSize);
-        vector<long long> fact(maxSize);
-        for(int i=0;i<2;i++) inv[i] = fact[i] = 1;
-        for(int i=2;i<maxSize;i++){
-            inv[i] = inv[MOD % i] * (MOD - MOD / i) % MOD;
-            fact[i] = fact[i-1] * i % MOD;
-        }
-        vector<vector<long long>> dp(maxSize, vector<long long>(4*N+1, 0));
-        dp[0][N] = 1;
-        for(int i=0;i<3*N;i++){
-            for(int j=0;j<=4*N;j++){
-                int dj[] = {1, -1, 0};
-                for(int k=0;k<3;k++){
-                    if(j+dj[k] < 0 || 4*N < j+dj[k]) continue;
-                    if(i+k+1 > 3*N) continue;
-                    dp[i+k+1][j+dj[k]] += dp[i][j] * inv[i+k+1];
-                    dp[i+k+1][j+dj[k]] %= MOD;
-                }
+    int N, M; cin >> N >> M;
+    vector<vector<long long>> dp(3*N+1, vector<long long>(N+1, 0));
+    dp[3*N][0] = 1;
+    for(int i=3*N;i>0;i--){
+        for(int j=0;j<=N;j++){
+            long long m = 1;
+            for(int k=1;k<=3;k++){
+                if(i-k < 0) break;
+                if(j+k/2 > N) break;
+                dp[i-k][j+k/2] += dp[i][j] * m;
+                dp[i-k][j+k/2] %= M;
+                m = m * (i-k) % M;
             }
         }
-        long long res = 0;
-        for(int i=N;i<=4*N;i+=3) res = (res + dp[3*N][i]) % MOD;
-        cout << (fact[3*N] * res) % MOD << endl;
     }
+    long long res = 0;
+    for(int i=0;i<=N;i++) res = (res + dp[0][i]) % M;
+    cout << res << endl;
 }
