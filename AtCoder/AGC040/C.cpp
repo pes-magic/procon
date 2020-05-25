@@ -13,12 +13,9 @@ long long modPow(long long a, long long p){
     return res;
 }
 
-long long calcInv(long long a){
-    return modPow(a, MOD-2);
-}
-
 int main(){
-    const int maxSize = 10000001;
+    int N; cin >> N;
+    int maxSize = N+1;
 	vector<long long> inv(maxSize);
 	vector<long long> fact(maxSize);
 	vector<long long> factInv(maxSize);
@@ -32,13 +29,9 @@ int main(){
 		if(n < r || r < 0) return 0LL;
 		return fact[n] * factInv[n-r] % MOD * factInv[r] % MOD;
 	};
-    int N;
-    while(cin >> N){
-        long long res = modPow(3, N);
-        for(int i=N/2+1;i<=N;i++){
-            long long sub = comb(N, i) * modPow(2, N-i);
-            res = (res + MOD - 2 * sub % MOD) % MOD;
-        }
-        cout << res << endl;
+    long long res = modPow(3, N);
+    for(int i=N/2+1;i<=N;i++){
+        res = (res + MOD - 2 * comb(N, i) * modPow(2, N-i) % MOD) % MOD;
     }
+    cout << res << endl;
 }
