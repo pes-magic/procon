@@ -7,33 +7,52 @@ using namespace std;
 const int MOD = 998244353;
 
 int main(){
-    long long N;
-    string S;
-    while(cin >> N >> S){
-        vector<long long> dig(N+1, 0);
-        for(int i=0;i<N;i++) dig[i+1] = (2*dig[i]+S[i]-'0')%MOD;
-        vector<long long> key;
-        vector<long long> num;
-        long long res = 0;
-        for(int div=(N-1)/2*2+1;div>=1;div-=2){
-            if(N%div) continue;
-            const long long d = N/div;
-            long long cur = dig[d];
-            bool ok = true;
-            for(int i=0;i<N;i++){
-                int cmp = S[i%d] - '0';
-                if(i/d%2) cmp = 1 - cmp;
-                if(S[i] - '0' < cmp) ok = false;
-                else if(S[i] - '0' > cmp) break;
-            }
-            if(ok) cur = (cur+1) % MOD;
-            for(int i=0;i<key.size();i++){
-                if(d%key[i] == 0) cur = (cur + MOD - num[i]) % MOD;
-            }
-            key.push_back(d);
-            num.push_back(cur);
-            res = (res + 2 * d * cur) % MOD;
+    int N; cin >> N;
+    string X; cin >> X;
+    vector<long long> div;
+    for(int i=1;i<=N;i++) if(N%i == 0 && N/i%2 == 1) div.push_back(i);
+    vector<long long> cnt(N+1, 0);
+    long long res = 0;
+    for(auto& d : div){
+        string s[2] = {"", ""};
+        long long num = 0;
+        for(int i=0;i<d;i++){
+            num = (2 * num + X[i] - '0') % MOD;
+            s[0] += X[i];
+            s[1] += X[i] == '0' ? '1' : '0';
         }
-        cout << res << endl;
+        bool ok = true;
+        for(int i=0;i<N;i++){
+            if(X[i] < s[i/d%2][i%d]) { ok = false; break; }
+            if(X[i] > s[i/d%2][i%d]) break;
+        }
+        cnt[d] = (num + (ok ? 1 : 0)) % MOD;
+        for(auto& d2 : div){
+            if(d2 >= d) break;
+            if(d%d2 == 0) cnt[d] = (cnt[d] + MOD - cnt[d2]) % MOD;
+        }
+        res = (res + cnt[d] * 2 * d) % MOD;
     }
+    cout << res << endl;
+    // for(int N=1;N<=20;N++){
+    //     vector<int> cycle(1<<N, -1);
+    //     for(int i=0;i<(1<<N);i++){
+    //         if(cycle[i] != -1) continue;
+    //         int t = i;
+    //         int c = 0;
+    //         do {
+    //             c++;
+    //             t = ((1-t%2)<<(N-1)) + t/2;
+    //         } while(t != i);
+    //         do {
+    //             cycle[t] = c;
+    //             t = ((1-t%2)<<(N-1)) + t/2;
+    //         } while(t != i);
+    //         if(c != 2*N){
+    //             cout << N << " " << c << ":";
+    //             for(int j=N-1;j>=0;j--) cout << (i>>j)%2;
+    //             cout << endl;
+    //         }
+    //     }
+    // }
 }
