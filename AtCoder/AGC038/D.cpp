@@ -24,31 +24,28 @@ private:
     vector<int> size;
 };
 
-bool solve(const vector<pair<int, int>>& e1, const vector<pair<int, int>>& e2, long long N, long long M){
-    if(M == N-1) return e2.empty();
+bool solve(){
+    long long N, M, Q; cin >> N >> M >> Q;
     UnionFind uf(N);
-    auto groupNum = N;
-    for(auto& e : e1){
-        if(uf.merge(e.first, e.second)) --groupNum;
+    vector<pair<int, int>> bi;
+    long long sz = N;
+    for(int i=0;i<Q;i++){
+        int a, b, c; cin >> a >> b >> c;
+        if(M == N-1 && c == 1) return false;
+        if(c == 0){
+            if(uf.merge(a, b)) --sz;
+        } else {
+            bi.emplace_back(a, b);
+        }
     }
-    if(groupNum <= 2) return M == N-1 && e2.empty();
-    for(auto& e : e2){
-        if(uf.same(e.first, e.second)) return false;
+    if(M == N-1) return true;
+    if(!bi.empty() && sz <= 2) return false;
+    for(auto& p : bi){
+        if(uf.same(p.first, p.second)) return false;
     }
-    return M <= N - groupNum + groupNum*(groupNum-1)/2;
+    return N-sz + sz*(sz-1)/2 >= M;
 }
 
 int main(){
-    long long N, M, Q; cin >> N >> M >> Q;
-    vector<pair<int, int>> e1;
-    vector<pair<int, int>> e2;
-    for(int i=0;i<Q;i++){
-        int A, B, C; cin >> A >> B >> C;
-        if(C == 0){
-            e1.emplace_back(A, B);
-        } else {
-            e2.emplace_back(A, B);
-        }
-    }
-    cout << (solve(e1, e2, N, M) ? "Yes" : "No") << endl;
+    cout << (solve() ? "Yes" : "No") << endl;
 }
