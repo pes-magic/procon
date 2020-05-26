@@ -5,7 +5,7 @@ using namespace std;
 
 class BipartiteMatch {
 public:
-    explicit BipartiteMatch(int N, int M) : 
+    explicit BipartiteMatch(int N, int M) :
         N(N), M(M), g(N+M), match(N+M, -1), visit(N+M, 0)
     {}
 public:
@@ -44,47 +44,41 @@ private:
 };
 
 int main(){
-    int N, M;
-    while(cin >> N >> M){
-        vector<vector<int>> A(N, vector<int>(M));
-        for(auto& v : A){
-            for(auto& t : v) cin >> t;
+    int N, M; cin >> N >> M;
+    vector<vector<int>> A(N, vector<int>(M));
+    vector<vector<vector<int>>> val(N, vector<vector<int>>(N));
+    for(int i=0;i<N;i++){
+        for(int j=0;j<M;j++){
+            int a; cin >> a;
+            val[i][(a-1)/M].push_back(a);
         }
-        vector<vector<int>> B(N, vector<int>(M));
-        for(int i=0;i<M;i++){
-            BipartiteMatch bm(N, N);
-            vector<vector<int>> target(N, vector<int>(N, -1));
-            for(int j=0;j<N;j++){
-                for(int k=0;k<M;k++){
-                    if(!A[j][k]) continue;
-                    int idx = (A[j][k]-1)/M;
-                    if(target[j][idx] != -1) continue;
-                    bm.addEdge(j, idx);
-                    target[j][idx] = k;
-                }
-            }
-            bm.maximumMatch();
-            for(int j=0;j<N;j++){
-                int t = bm.getMatch(j);
-                B[j][i] = A[j][target[j][t]];
-                A[j][target[j][t]] = 0;
+    }
+    vector<vector<int>> B(N);
+    vector<vector<int>> C(N);
+    for(int i=0;i<M;i++){
+        BipartiteMatch bm(N, N);
+        for(int j=0;j<N;j++){
+            for(int k=0;k<N;k++){
+                if(!val[j][k].empty()) bm.addEdge(j, k);
             }
         }
-        vector<vector<int>> C(N, vector<int>(M));
-        for(int i=0;i<N;i++){
-            for(int j=0;j<M;j++){
-                for(int k=0;k<N;k++) if((B[k][j]-1)/M == i) C[i][j] = B[k][j];
-            }
+        bm.maximumMatch();
+        for(int j=0;j<N;j++){
+            int m = bm.getMatch(j);
+            int b = val[j][m].back();
+            val[j][m].pop_back();
+            B[j].push_back(b);
+            C[(b-1)/M].push_back(b);
         }
-        for(auto& v : B){
-            cout << v[0];
-            for(int i=1;i<v.size();i++) cout << " " << v[i];
-            cout << endl;
-        }
-        for(auto& v : C){
-            cout << v[0];
-            for(int i=1;i<v.size();i++) cout << " " << v[i];
-            cout << endl;
-        }
+    }
+    for(auto& v : B){
+        cout << v[0];
+        for(int i=1;i<v.size();i++) cout << " " << v[i];
+        cout << endl;
+    }
+    for(auto& v : C){
+        cout << v[0];
+        for(int i=1;i<v.size();i++) cout << " " << v[i];
+        cout << endl;
     }
 }

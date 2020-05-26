@@ -6,35 +6,43 @@
 using namespace std;
 
 int main(){
-    int N, K;
-    while(cin >> N >> K){
-        string S; cin >> S;
-        vector<string> vs;
-        string T = S;
-        reverse(T.begin(), T.end());
-        S += T;
-        char best = 'z' + 1;
+    int N, K; cin >> N >> K;
+    string S; cin >> S;
+    string T = S;
+    reverse(T.begin(), T.end());
+    S += T;
+    char minC = '~';
+    int maxRep = 1;
+    string minSuffix = "";
+    for(int i=0;i<N;i++){
+        if(S[i] > minC) continue;
+        if(S[i] < minC){
+            minC = S[i];
+            maxRep = 0;
+            minSuffix = "~";
+        }
         int len = 0;
-        int rep = 0;
-        for(int i=0;i<N;i++){
-            int curL = 0;
-            for(int j=i;j<S.size();j++){
-                if(S[i] == S[j]) ++curL;
-                else break;
-            }
-            if(S[i] < best || (S[i] == best && curL > len)){
-                vs.clear();
-                best = S[i];
-                len = curL;
-                rep = len;
-                for(int j=0;j<K-1 && rep < N;j++) rep *= 2;
-                rep = min(N, rep);
-            }
-            if(S[i] == best && len == curL){
-                vs.emplace_back(S.substr(i+len, N-rep));
+        for(int j=i;j<N+i;j++){
+            if(minC == S[j]) ++len;
+            else break;
+        }
+        int repLen = len;
+        for(int j=1;j<K;j++){
+            repLen *= 2;
+            if(repLen >= N){
+                repLen = N;
+                break;
             }
         }
-        sort(vs.begin(), vs.end());
-        cout << (string(rep, best) + vs[0]) << endl;
+        string curSuffix = "";
+        for(int j=i+len;j<N+i;j++){
+            if(repLen + curSuffix.size() == N) break;
+            curSuffix += S[j];
+        }
+        if(maxRep < repLen || maxRep == repLen && minSuffix > curSuffix){
+            maxRep = repLen;
+            minSuffix = curSuffix;
+        }
     }
+    cout << string(maxRep, minC) << minSuffix << endl;
 }
