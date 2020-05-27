@@ -8,63 +8,56 @@ public:
     explicit UnionFind(int N) : root(N, -1), size(N, 1) {}
     int getRoot(int u){ return root[u] == -1 ? u : root[u] = getRoot(root[u]); }
     int getSize(int u){ return size[getRoot(u)]; }
-    int same(int a, int b){
+    bool same(int a, int b){
         return getRoot(a) == getRoot(b);
     }
-    int merge(int a, int b){
+    bool merge(int a, int b){
         int u = getRoot(a);
         int v = getRoot(b);
-        if(u != v){
-            root[u] = v;
-            size[v] += size[u];
-        }
+        if(u == v) return false;
+        root[u] = v;
+        size[v] += size[u];
+        return true;
     }
 private:
     vector<int> root;
     vector<int> size;
 };
 
-void dfs(const vector<vector<int>>& g, int pos, int prev, vector<int>& deg){
+void search(const vector<vector<int>>& g, vector<int>& deg, int pos, int prev){
     for(auto& t : g[pos]){
         if(t == prev) continue;
-        dfs(g, t, pos, deg);
+        search(g, deg, t, pos);
     }
-    if(prev == -1) return;
-    if(deg[pos]%2 == 0){
-        cout << prev << " " << pos << endl;
-        deg[prev]++;
-    } else {
-        cout << pos << " " << prev << endl;
-        deg[pos]++;
+    if(prev != -1){
+        if(deg[pos]){
+            cout << pos << " " << prev << endl;
+        } else {
+            cout << prev << " " << pos << endl;
+            deg[prev] = 1 - deg[prev];
+        }
     }
 }
 
 int main(){
     int N, M;
-    while(cin >> N >> M){
-        if(M%2 == 1){
-            cout << -1 << endl;
-            for(int i=0;i<M;i++){
-                int a, b; cin >> a >> b;
-            }
-            continue;
-        }
-        vector<vector<int>> g(N+1);
-        UnionFind uf(N+1);
-        vector<int> deg(N+1, 0);
-        for(int i=0;i<M;i++){
-            int a, b; cin >> a >> b;
-            int u = uf.getRoot(a);
-            int v = uf.getRoot(b);
-            if(u == v){
-                cout << a << " " << b << endl;
-                deg[a]++;
-            } else {
-                uf.merge(a, b);
-                g[a].push_back(b);
-                g[b].push_back(a);
-            }
-        }
-        dfs(g, 1, -1, deg);
+    cin >> N >> M;
+    UnionFind uf(N+1);
+    if(M%2 == 1){
+        cout << -1 << endl;
+        return 0;
     }
+    vector<int> deg(N+1, 0);
+    vector<vector<int>> g(N+1);
+    for(int i=0;i<M;i++){
+        int a, b; cin >> a >> b;
+        if(uf.merge(a, b)){
+            g[a].push_back(b);
+            g[b].push_back(a);
+        } else {
+            cout << a << " " << b << endl;
+            deg[a] = 1 - deg[a];
+        }
+    }
+    search(g, deg, 1, -1);
 }
