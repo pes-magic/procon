@@ -20,23 +20,19 @@ int main(){
 		if(n < r || r < 0) return 0LL;
 		return fact[n] * factInv[n-r] % MOD * factInv[r] % MOD;
 	};
-    auto perm = [&](int n, int r){
-        if(n < r || r < 0) return 0LL;
-        return fact[n] * factInv[n-r] % MOD;
-    };
-    int N, M;
-    while(cin >> N >> M){
-        long long res = (N * comb(M+N-2, N-2)) % MOD;
-        long long sum = 0;
-        for(int i=0;i<=M/2;i++){
-            int m2 = M+i;
-            long long cur = comb(m2+N-1, N-1);
-            sum += N * comb(m2-M+N-2, N-2);
-            sum %= MOD;
-            cur = (cur + MOD - sum) % MOD;
-            res += cur * comb(N, M-2*i);
-            res %= MOD;
+    int N, M; cin >> N >> M;
+    long long res = 0;
+    for(int m=0;2*m<=M;m++){
+        int m2 = M + m;
+        int m1 = M - 2*m;
+        if(m1 > N) continue;
+        res = (res + comb(m2+N-1, N-1) * comb(N, m1)) % MOD;
+        if(m1 > 0){
+            res = (res + MOD - (comb(m2-M+N-2, N-2) * comb(N-1, m1-1)) % MOD * N % MOD) % MOD;
         }
-        cout << res << endl;
+        if(m2 >= M+1){
+            res = (res + MOD - (comb(m2-M-1+N-1, N-1) * comb(N, m1)) % MOD * N % MOD) % MOD;
+        }
     }
+    cout << res << endl;
 }
