@@ -4,40 +4,34 @@
 
 using namespace std;
 
+const long long INF = 1LL << 60;
+
 int main(){
     int N;
     long long A, B;
-    while(cin >> N >> A >> B){
-        vector<int> p(N);
-        for(auto& t : p) cin >> t;
-        vector<long long> dp(2*N+1, 0);
-        bool find1 = false;
-        for(int i=0;i<=2*N;i++){
-            if(i%2 == 1 && p[i/2] == 1){
-                find1 = true;
-            } else {
-                dp[i] = (find1 ? A : B);
-            }
-        }
-        for(int i=2;i<=N;i++){
-            vector<long long> next(2*N+1, 0);
-            long long m = dp[0];
-            bool find = false;
-            for(int j=0;j<=2*N;j++){
-                if(j%2 == 1){
-                    if(p[j/2] == i){
-                        next[j] = m;
-                        find = true;
-                    } else {
-                        next[j] = m + (find ? A : B);
-                    }
-                } else {
-                    next[j] = min(m, dp[j]) + (find ? A : B);
-                }
-                m = min(m, dp[j]);
-            }
-            dp = next;
-        }
-        cout << *min_element(dp.begin(), dp.end()) << endl;
+    cin >> N >> A >> B;
+    vector<int> pos(N);
+    for(int i=0;i<N;i++){
+        int p; cin >> p;
+        pos[p-1] = 2*i+1;
     }
+    vector<long long> dp(2*N+1, INF);
+    for(int i=0;i<pos[0];i+=2) dp[i] = B;
+    dp[pos[0]] = 0;
+    for(int i=pos[0]+1;i<=2*N;i+=2) dp[i] = A;
+    for(int i=1;i<N;i++){
+        long long best = INF;
+        for(int j=0;j<=2*N;j++){
+            best = min(best, dp[j]);
+            if(j%2 == 0){
+                auto c = (j < pos[i] ? B : A);
+                dp[j] = best + c;
+            } else if(j == pos[i]){
+                dp[j] = best;
+            } else {
+                dp[j] = INF;
+            }
+        }
+    }
+    cout << *min_element(dp.begin(), dp.end()) << endl;
 }
