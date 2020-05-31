@@ -1,7 +1,7 @@
-// 区間加算セグメント木
-// Verifyed
-// http://judge.u-aizu.ac.jp/onlinejudge/description.jsp?id=DSL_2_E
-// https://atcoder.jp/contests/abc153/tasks/abc153_f
+#include <iostream>
+#include <vector>
+
+using namespace std;
 
 template<typename T>
 class RangeAddQuery {
@@ -41,3 +41,21 @@ private:
     const int N;
     vector<T> mVal;
 };
+
+
+int main(){
+    int n, q;
+    while(cin >> n >> q){
+        RangeAddQuery<int> raq(n+1);
+        for(int i=0;i<q;i++){
+            int c; cin >> c;
+            if(c == 0){
+                int s, t, x; cin >> s >> t >> x;
+                raq.update(s, t+1, x);
+            } else {
+                int p; cin >> p;
+                cout << raq.get(p) << endl;
+            }
+        }
+    }
+}

@@ -3,7 +3,6 @@
 #include <algorithm>
 
 using namespace std;
-
 template<typename T>
 class RangeAddQuery {
 public:
@@ -11,14 +10,24 @@ public:
         mVal.assign(2*N+1, 0);
     }
     void update(int l, int r, T value){
-        updateImpl_(l, r, value, 0, 0, N);
+        l = max(0, l);
+        r = min(N, r);
+        int offset = N;
+        while(offset > 0){
+            if(l >= r) break;
+            if(l&1){ update_(mVal[offset+l-1], value); l++; }
+            if(r&1){ update_(mVal[offset+r-2], value); }
+            l /= 2;
+            r /= 2;
+            offset /= 2;
+        }
     }
     T get(int idx){
         int i = N + idx - 1;
         auto res = mVal[i];
         while(i > 0){
             i = (i-1)/2;
-            res += mVal[i];
+            update_(res, mVal[i]);
         }
         return res;
     }
@@ -28,23 +37,15 @@ private:
         while(res < n) res *= 2;
         return res;
     }
-    void updateImpl_(int l, int r, T value, int idx, int rangeL, int rangeR){
-        if(r <= rangeL || rangeR <= l) return;
-        if(l <= rangeL && rangeR <= r){
-            mVal[idx] += value;
-        } else {
-            int rangeM = (rangeL+rangeR)/2;
-            updateImpl_(l, r, value, 2*idx+1, rangeL, rangeM);
-            updateImpl_(l, r, value, 2*idx+2, rangeM, rangeR);
-        }
-    }
+    inline void update_(T& data, T val) { data += val; }
     const int N;
-    vector<T> mVal; 
+    vector<T> mVal;
 };
+
 
 int main(){
     int N, D, A;
-    while(cin >> N >> D >> A){     
+    while(cin >> N >> D >> A){
         RangeAddQuery<long long> raq(N);
         vector<pair<long long, long long>> vp(N);
         for(auto& p : vp) cin >> p.first >> p.second;
