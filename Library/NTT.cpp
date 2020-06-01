@@ -1,5 +1,5 @@
 // 整数環FFT
-// verifyed
+// verified
 // https://atcoder.jp/contests/atc001/tasks/fft_c
 // https://atcoder.jp/contests/nikkei2019-2-final/tasks/nikkei2019_2_final_f
 

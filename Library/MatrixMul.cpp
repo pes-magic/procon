@@ -1,5 +1,5 @@
 // 行列累乗
-// verifyed
+// verified
 // https://atcoder.jp/contests/abc009/tasks/abc009_4
 // https://atcoder.jp/contests/ddcc2020-final/tasks/ddcc2020_final_b
 

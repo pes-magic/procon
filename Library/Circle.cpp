@@ -1,5 +1,5 @@
 // 円
-// verifyed
+// verified
 // https://atcoder.jp/contests/abc157/tasks/abc157_f
 
 using P = complex<double>;
@@ -7,7 +7,7 @@ using Circle = pair<P,double>;
 
 const double EPS = 1e-12;
 
-// not verifyed
+// not verified
 bool overlap(const Circle& c1, const Circle& c2){
 	auto d = abs(c1.first - c2.first);
 	return c2.second - (d + c1.second) > -EPS;

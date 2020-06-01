@@ -1,5 +1,5 @@
 // 剰余計算
-// verifyed
+// verified
 // https://atcoder.jp/contests/keyence2019/tasks/keyence2019_f
 
 long long modPow(long long a, long long p){
@@ -15,7 +15,7 @@ long long calcInv(long long a){
 }
 
 // 離散対数 (a^x = target (mod MOD) なる x を求める)
-// verifyed : https://atcoder.jp/contests/arc042/tasks/arc042_d
+// verified : https://atcoder.jp/contests/arc042/tasks/arc042_d
 int moduloLog(int a, int target){
     int sq = sqrt(MOD);
     long long m = 1;

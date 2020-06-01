@@ -1,5 +1,5 @@
 // FFT
-// verifyed
+// verified
 // https://atcoder.jp/contests/atc001/tasks/fft_c
 
 const double PI = acos(-1.0);
