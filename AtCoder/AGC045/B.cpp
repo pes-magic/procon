@@ -1,6 +1,7 @@
-// 遅延評価セグメント木(区間更新+最小クエリ)
-// Verifyed
-// http://judge.u-aizu.ac.jp/onlinejudge/description.jsp?id=DSL_2_F
+#include <iostream>
+#include <vector>
+
+using namespace std;
 
 template<typename T>
 class LazySegTree {
@@ -58,10 +59,36 @@ private:
         mLazy[idx] = 0;
         mDirty[idx] = 0;
     }
-    T operate_(T a, T b) const { return min(a, b); }
+    T operate_(T a, T b) const { return max(a, b); }
     const int N;
     const T def;
     vector<T> mVal;
     vector<T> mLazy;
     vector<int> mDirty;
 };
+
+int solve(const string& S, int mergin){
+    int mx = 0;
+    int sum = 0;
+    LazySegTree<int> seg(S.size()+1, 0, -1000000000);
+    for(int i=0;i<S.size();i++){
+        sum += (S[i] == '1' ? 1 : -1);
+        seg.update(i+1, i+2, sum);
+        mx = max(mx, sum);
+    }
+    mx += mergin;
+    for(int i=0;i<S.size();i++){
+        if(S[i] != '?') continue;
+        if(seg.get(i+1, S.size()+1) + 2 <= mx){
+            seg.update(i+1, S.size()+1, 2);
+        }
+    }
+    int mv = 1000000000;
+    for(int i=0;i<=S.size();i++) mx = min(mx, seg.get(i, i+1));
+    return seg.get(0, S.size()+1) - mx;
+}
+
+int main(){
+    string S; cin >> S;
+    cout << min(solve(S, 0), solve(S, 1)) << endl;
+}
