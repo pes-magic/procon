@@ -1,7 +1,7 @@
-#include <iostream>
-#include <vector>
-
-using namespace std;
+// Xor基底
+// verified
+// https://atcoder.jp/contests/abc141/tasks/abc141_f
+// https://atcoder.jp/contests/agc045/tasks/agc045_a
 
 class XorBase {
 public:
@@ -26,16 +26,3 @@ public:
 private:
     vector<long long> base;
 };
-
-int main(){
-    int N; cin >> N;
-    long long all = 0;
-    XorBase xb;
-    vector<long long> a(N);
-    for(auto& t : a){
-        cin >> t;
-        all ^= t;
-    }
-    for(auto& t : a) xb.add(t&~all);
-    cout << 2*xb.getMax()+all << endl;
-}

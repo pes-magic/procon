@@ -1,5 +1,6 @@
 #include <iostream>
 #include <vector>
+#include <string>
 
 using namespace std;
 
@@ -27,15 +28,26 @@ private:
     vector<long long> base;
 };
 
-int main(){
-    int N; cin >> N;
-    long long all = 0;
+int solve(const vector<long long>& A, const string& S){
+    const int N = A.size();
     XorBase xb;
-    vector<long long> a(N);
-    for(auto& t : a){
-        cin >> t;
-        all ^= t;
+    for(int i=N-1;i>=0;i--){
+        if(S[i] == '0'){
+            xb.add(A[i]);
+        } else {
+            if(!xb.represent(A[i])) return 1;
+        }
     }
-    for(auto& t : a) xb.add(t&~all);
-    cout << 2*xb.getMax()+all << endl;
+    return 0;
+}
+
+int main(){
+    int T; cin >> T;
+    while(T--){
+        int N; cin >> N;
+        vector<long long> A(N);
+        for(auto& t : A) cin >> t;
+        string S; cin >> S;
+        cout << solve(A, S) << endl;
+    }
 }
