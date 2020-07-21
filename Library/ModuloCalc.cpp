@@ -52,3 +52,7 @@ int moduloLog(int a, int target){
         if(n < r || r < 0) return 0LL;
         return fact[n] * factInv[n-r] % MOD;
     };
+    auto catalan = [&](int n){
+        if(n <= 0) return 1LL;
+        return fact[2*n] * factInv[n] % MOD * factInv[n+1] % MOD;
+    };
