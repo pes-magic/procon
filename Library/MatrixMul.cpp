@@ -74,10 +74,14 @@ Matrix<T> modMul(const Matrix<T>& a, const Matrix<T>& b, int mod){
 template<typename T>
 Matrix<T> modPow(const Matrix<T>& a, int p, int mod){
     const int N = a.size();
-    if(p == 0) return Matrix<T>::ident(N);
-    auto res = modPow(a, p/2, mod);
-    res = modMul(res, res, mod);
-    if(p%2) res = modMul(res, a, mod);
+    auto res = Matrix<T>::ident(N);
+    auto m = a;
+    while(true){
+        if(p%2) res = modMul(res, m, mod);
+        p /= 2;
+        if(!p) break;
+        m = modMul(m, m, mod);
+    }
     return res;
 }
 

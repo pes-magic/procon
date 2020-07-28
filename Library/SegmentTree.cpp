@@ -22,16 +22,17 @@ public:
         l = max(0, l);
         r = min(N, r);
         int offset = N;
-        T res = def;
+        T resL = def;
+        T resR = def;
         while(offset > 0){
             if(l >= r) break;
-            if(l&1){ res = operate(res, mVal[offset+l-1]); l++; }
-            if(r&1){ res = operate(res, mVal[offset+r-2]); }
+            if(l&1){ resL = operate(resL, mVal[offset+l-1]); l++; }
+            if(r&1){ resR = operate(mVal[offset+r-2], resR); }
             l /= 2;
             r /= 2;
             offset /= 2;
         }
-        return res;
+        return operate(resL, resR);
     }
 private:
     int calcN_(int n){
