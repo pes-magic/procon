@@ -1,7 +1,8 @@
-// 最長増加部分列
-// Verified
-// https://onlinejudge.u-aizu.ac.jp/courses/library/7/DPL/1/DPL_1_D
-// https://atcoder.jp/contests/agc019/tasks/agc019_c
+#include <iostream>
+#include <vector>
+#include <algorithm>
+
+using namespace std;
 
 template<typename T>
 int LIS(const vector<T>& v){
@@ -15,4 +16,13 @@ int LIS(const vector<T>& v){
         *l = v[i];
 	}
 	return distance(a.begin(), end);
+}
+
+int main(){
+    int n;
+    while(cin >> n){
+        vector<int> a(n);
+        for(auto& t : a) cin >> t;
+        cout << LIS(a) << endl;
+    }
 }
