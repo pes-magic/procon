@@ -1,3 +1,5 @@
 * SegmentTree上の2分探索
 ** ARC023-D: GCD区間
 
+* Trie木
+** tenka1-2016-final-C: たんごたくさん
