@@ -1,8 +1,7 @@
-// 整数環FFT
-// verified
-// https://atcoder.jp/contests/atc001/tasks/fft_c
-// https://atcoder.jp/contests/nikkei2019-2-final/tasks/nikkei2019_2_final_f
-// https://yukicoder.me/problems/no/206
+#include <iostream>
+#include <vector>
+
+using namespace std;
 
 const int MOD = 998244353;
 
@@ -56,4 +55,22 @@ vector<long long> convolution(const vector<long long>& a, const vector<long long
     auto inv = calcInv(n);
     for(int i=0;i<n;i++) na[i] = na[i] * inv % MOD;
     return na;
+}
+
+int main(){
+    int L, M, N;
+    while(cin >> L >> M >> N){
+        vector<long long> A(N, 0), B(N, 0);
+        for(int i=0;i<L;i++){
+            int a; cin >> a;
+            A[a-1]++;
+        }
+        for(int i=0;i<M;i++){
+            int b; cin >> b;
+            B[N-b]++;
+        }
+        auto v = convolution(A, B);
+        int Q; cin >> Q;
+        for(int i=0;i<Q;i++) cout << v[N-1+i] << endl;
+    }
 }
