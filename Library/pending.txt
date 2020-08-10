@@ -3,3 +3,4 @@
 
 * Trie木
 ** tenka1-2016-final-C: たんごたくさん
+** AGC047: First Second
