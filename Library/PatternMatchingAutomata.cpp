@@ -1,6 +1,7 @@
 // 複数パターン検索
 // Verified
 // https://atcoder.jp/contests/jag2017autumn/tasks/jag2017autumn_h
+// https://yukicoder.me/problems/no/430
 
 template<int char_size, int base>
 class PMA {
