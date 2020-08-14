@@ -1,9 +1,7 @@
-// 整数環FFT
-// verified
-// https://atcoder.jp/contests/atc001/tasks/fft_c
-// https://atcoder.jp/contests/nikkei2019-2-final/tasks/nikkei2019_2_final_f
-// https://yukicoder.me/problems/no/206
-// https://yukicoder.me/problems/no/931
+#include <iostream>
+#include <vector>
+
+using namespace std;
 
 const int MOD = 998244353;
 
@@ -57,4 +55,45 @@ vector<long long> convolution(const vector<long long>& a, const vector<long long
     auto inv = calcInv(n);
     for(int i=0;i<n;i++) na[i] = na[i] * inv % MOD;
     return na;
+}
+
+int getPrimitiveRoot(int P){
+    for(int i=2;i<P;i++){
+        vector<int> seen(P, 0);
+        bool ok = true;
+        long long cur = 1;
+        for(int j=0;j<P-1;j++){
+            if(seen[cur]){ ok = false; break; }
+            seen[cur] = 1;
+            cur = (i*cur)%P;
+        }
+        if(ok) return i;
+    }
+    return 2;
+}
+
+int main(){
+    int P;
+    while(cin >> P){
+        vector<int> g(P-1);
+        const int r = getPrimitiveRoot(P);
+        int m = 1;
+        for(int i=0;i<P-1;i++){
+            g[m-1] = i;
+            m = (r*m)%P;
+        }
+        vector<long long> A(P-1), B(P-1);
+        for(int i=0;i<P-1;i++) cin >> A[g[i]];
+        for(int i=0;i<P-1;i++) cin >> B[g[i]];
+        auto v = convolution(A, B);
+        vector<long long> res(P-1);
+        m = 1;
+        for(int i=0;i<v.size();i++){
+            res[m-1] = (res[m-1] + v[i]) % MOD;
+            m = (r*m)%P;
+        }
+        cout << res[0];
+        for(int i=1;i<res.size();i++) cout << " " << res[i];
+        cout << endl;
+    }
 }
