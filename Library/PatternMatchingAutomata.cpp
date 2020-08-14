@@ -1,6 +1,7 @@
 // 複数パターン検索
 // Verified
 // https://atcoder.jp/contests/jag2017autumn/tasks/jag2017autumn_h
+// https://atcoder.jp/contests/jsc2019-final/tasks/jsc2019_final_e
 // https://yukicoder.me/problems/no/430
 
 template<int char_size, int base>
@@ -28,7 +29,7 @@ private:
                 int& nextId = node[nodeId].next[b];
                 if(nextId == -1){
                     nextId = node.size();
-                    node.emplace_back(Node());
+                    node.emplace_back();
                 }
                 nodeId = nextId;
             }
@@ -51,8 +52,8 @@ private:
                 if(next == -1) continue;
                 int nxt = node[cur].fail;
                 while(node[nxt].next[i] == -1) nxt = node[nxt].fail;
-                node[node[cur].next[i]].fail = node[nxt].next[i];
-                qu.push(node[cur].next[i]);
+                node[next].fail = node[nxt].next[i];
+                qu.push(next);
             }
         }
     }
