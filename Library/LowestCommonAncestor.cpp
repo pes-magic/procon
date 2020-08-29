@@ -1,6 +1,7 @@
 // 最小共通祖先
 // Verifyed
 // https://atcoder.jp/contests/arc039/tasks/arc039_d
+// https://atcoder.jp/contests/code-festival-2014-final/tasks/code_festival_final_i
 
 class LCA {
 public:

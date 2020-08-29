@@ -3,6 +3,7 @@
 // http://judge.u-aizu.ac.jp/onlinejudge/description.jsp?id=DSL_2_D
 // https://atcoder.jp/contests/nikkei2019-2-qual/tasks/nikkei2019_2_qual_d
 // https://atcoder.jp/contests/agc029/tasks/agc029_c
+// https://atcoder.jp/contests/code-festival-2014-final/tasks/code_festival_final_i
 
 template<typename T>
 class RangeUpdateQuery {
