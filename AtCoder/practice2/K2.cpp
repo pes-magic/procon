@@ -53,7 +53,7 @@ private:
             mVal[idx] = operate_(mVal[2*idx+1], mVal[2*idx+2]);
         }
     }
-    void setLazy_(int idx, F value){
+    inline void setLazy_(int idx, F value){
         mulFunc_(value, mLazy[idx]);
     }
     T getImpl_(int l, int r, int idx, int rangeL, int rangeR){
