@@ -1,9 +1,7 @@
-// 整数環FFT
-// verified
-// https://atcoder.jp/contests/atc001/tasks/fft_c
-// https://atcoder.jp/contests/nikkei2019-2-final/tasks/nikkei2019_2_final_f
-// https://yukicoder.me/problems/no/206
-// https://yukicoder.me/problems/no/931
+#include <iostream>
+#include <vector>
+
+using namespace std;
 
 const int MOD = 998244353;
 
@@ -53,18 +51,38 @@ void ntt2d(vector<vector<long long>>& v, int inv){
     }
 }
 
-vector<long long> convolution(const vector<long long>& a, const vector<long long>& b){
-    int _n = a.size() + b.size();
-    int n = 1;
-    while(n < _n) n *= 2;
-    vector<long long> na(n, 0), nb(n, 0);
-    for(int i=0;i<a.size();i++) na[i] = a[i];
-    for(int i=0;i<b.size();i++) nb[i] = b[i];
-    ntt(na, 1);
-    ntt(nb, 1);
-    for(int i=0;i<n;i++) na[i] = na[i] * nb[i] % MOD;
-    ntt(na, -1);
-    auto inv = calcInv(n);
-    for(int i=0;i<n;i++) na[i] = na[i] * inv % MOD;
-    return na;
+vector<vector<long long>> mul(const vector<vector<long long>>& a, const vector<vector<long long>>& b){
+    auto res = a;
+    for(int i=0;i<a.size();i++){
+        for(int j=0;j<a[i].size();j++) res[i][j] = a[i][j] * b[i][j] % MOD;
+    }
+    return res;
+}
+
+vector<vector<long long>> pow(const vector<vector<long long>>& a, long long p){
+    if(p == 1) return a;
+    auto r = pow(a, p/2);
+    r = mul(r, r);
+    if(p%2 == 1) r = mul(r, a);
+    return r;
+}
+
+int main(){
+    int X, Y;
+    while(cin >> X >> Y){
+        long long T; cin >> T;
+        int a, b, c, d; cin >> a >> b >> c >> d;
+        int N = 1 << (X+1);
+        int M = 1 << (Y+1);
+        vector<vector<long long>> f(N, vector<long long>(M, 0LL));
+        f[0][0] = f[0][1] = f[1][0] = f[N-1][0] = f[0][M-1] = 1;
+        vector<vector<long long>> g(N, vector<long long>(M, 0LL));
+        g[a][b] = g[N-a][M-b] = 1;
+        g[a][M-b] = g[N-a][b] = MOD - 1;
+        ntt2d(f, 1);
+        ntt2d(g, 1);
+        auto res = mul(pow(f, T), g);
+        ntt2d(res, -1);
+        cout << res[c][d] * calcInv(N*M) % MOD << endl;
+    }
 }
