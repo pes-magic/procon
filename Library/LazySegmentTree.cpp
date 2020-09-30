@@ -1,13 +1,10 @@
-#include <iostream>
-#include <vector>
-
-using namespace std;
-
-struct Node {
-    constexpr Node(int z=0, int o=0, long long i=0) : zero(z), one(o), inv(i){}
-    int zero, one;
-    long long inv;
-};
+// 遅延評価セグメント木
+// Verifyed
+// https://atcoder.jp/contests/practice2/tasks/practice2_k
+// https://atcoder.jp/contests/practice2/tasks/practice2_l
+// http://judge.u-aizu.ac.jp/onlinejudge/description.jsp?id=DSL_2_F
+// http://judge.u-aizu.ac.jp/onlinejudge/description.jsp?id=DSL_2_G
+// http://judge.u-aizu.ac.jp/onlinejudge/description.jsp?id=DSL_2_H
 
 template<typename M>
 class LazySegTree {
@@ -90,6 +87,89 @@ private:
     vector<F> mLazy;
 };
 
+// Sample: http://judge.u-aizu.ac.jp/onlinejudge/description.jsp?id=DSL_2_F
+// range-update and range-min-query
+class RUMQ {
+public:
+    using T = int;
+    using F = int;
+    using W = int;
+    static constexpr T default_value = 2147483647;
+    static constexpr F unit_op = -1;
+    static const T def() { return default_value; }
+    static const F unit() { return unit_op; }
+    static T operate(const T& a, const T& b){ return min(a, b); }
+    static void mulFunc(F f, F& cur){ if(f >= 0) cur = f; }
+    static void applyFunc(T& val, const F& op, W width){
+        if(op >= 0) val = op;
+    }
+};
+
+// Sample: http://judge.u-aizu.ac.jp/onlinejudge/description.jsp?id=DSL_2_G
+// range-add and range-sum-query
+class RASQ {
+public:
+    using T = long long;
+    using F = long long;
+    using W = int;
+    static constexpr T default_value = 0;
+    static constexpr F unit_op = 0;
+    static const T def() { return default_value; }
+    static const F unit() { return unit_op; }
+    static T operate(const T& a, const T& b){ return a + b; }
+    static void mulFunc(F f, F& cur){ cur += f; }
+    static void applyFunc(T& val, const F& op, W width){ val += op * width; }
+};
+
+// Sample: http://judge.u-aizu.ac.jp/onlinejudge/description.jsp?id=DSL_2_H
+// range-add and range-min-query
+class RAMQ {
+public:
+    using T = long long;
+    using F = long long;
+    using W = int;
+    static constexpr T default_value = 1LL << 60;
+    static constexpr F unit_op = 0;
+    static const T def() { return default_value; }
+    static const F unit() { return unit_op; }
+    static T operate(const T& a, const T& b){ return min(a, b); }
+    static void mulFunc(F f, F& cur){ cur += f; }
+    static void applyFunc(T& val, const F& op, W width){ val += op; }
+};
+
+// sample: http://judge.u-aizu.ac.jp/onlinejudge/description.jsp?id=DSL_2_I
+// range-update and range-sum-query
+class RUSQ {
+public:
+    using T = long long;
+    using F = pair<long long, bool>;
+    using W = int;
+    static constexpr T default_value = 0;
+    static constexpr F unit_op = make_pair(0, false);
+    static const T def() { return default_value; }
+    static const F unit() { return unit_op; }
+    static T operate(const T& a, const T& b){ return a + b; }
+    static void mulFunc(F f, F& cur){
+        if(!f.second) return;
+        cur.first = f.first;
+        cur.second = true;
+    }
+    static void applyFunc(T& val, const F& op, W width){
+        if(!op.second) return;
+        val = op.first * width;
+    }
+};
+
+// Sample: https://atcoder.jp/contests/practice2/tasks/practice2_l
+// Operate : 区間の0-1反転
+// Query   : 区間の転倒数
+
+struct Node {
+    constexpr Node(int z=0, int o=0, long long i=0) : zero(z), one(o), inv(i){}
+    int zero, one;
+    long long inv;
+};
+
 class MONOID {
 public:
     using T = Node;
@@ -110,22 +190,3 @@ public:
         val.inv = n*(n-1)/2 - val.inv - val.zero*(val.zero-1)/2 - val.one*(val.one-1)/2;
     }
 };
-
-int main(){
-    int N, Q; cin >> N >> Q;
-    vector<Node> a(N, Node(0, 0, 0));
-    for(int i=0;i<N;i++){
-        int t; cin >> t;
-        if(t == 0) a[i].zero = 1;
-        else a[i].one = 1;
-    }
-    LazySegTree<MONOID> seg(a);
-    for(int i=0;i<Q;i++){
-        int t, l, r; cin >> t >> l >> r;
-        if(t == 1){
-            seg.update(l-1, r, true);
-        } else {
-            cout << seg.get(l-1, r).inv << endl;
-        }
-    }
-}

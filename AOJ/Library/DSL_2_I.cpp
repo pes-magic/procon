@@ -3,12 +3,6 @@
 
 using namespace std;
 
-struct Node {
-    constexpr Node(int z=0, int o=0, long long i=0) : zero(z), one(o), inv(i){}
-    int zero, one;
-    long long inv;
-};
-
 template<typename M>
 class LazySegTree {
 public:
@@ -90,42 +84,41 @@ private:
     vector<F> mLazy;
 };
 
-class MONOID {
+// range-update and range-sum-query
+class RUSQ {
 public:
-    using T = Node;
-    using F = int;
+    using T = long long;
+    using F = pair<long long, bool>;
     using W = int;
-    static constexpr T default_value = Node(0, 0, 0);
-    static constexpr F unit_op = 0;
+    static constexpr T default_value = 0;
+    static constexpr F unit_op = make_pair(0, false);
     static const T def() { return default_value; }
     static const F unit() { return unit_op; }
-    static T operate(const T& a, const T& b){
-        return T(a.zero + b.zero, a.one + b.one, a.inv + b.inv + (long long)a.one * b.zero);
+    static T operate(const T& a, const T& b){ return a + b; }
+    static void mulFunc(F f, F& cur){
+        if(!f.second) return;
+        cur.first = f.first;
+        cur.second = true;
     }
-    static void mulFunc(F f, F& cur){ if(f) cur = 1 - cur; }
     static void applyFunc(T& val, const F& op, W width){
-        if(!op) return;
-        const long long n = val.zero + val.one;
-        swap(val.zero, val.one);
-        val.inv = n*(n-1)/2 - val.inv - val.zero*(val.zero-1)/2 - val.one*(val.one-1)/2;
+        if(!op.second) return;
+        val = op.first * width;
     }
 };
 
 int main(){
-    int N, Q; cin >> N >> Q;
-    vector<Node> a(N, Node(0, 0, 0));
-    for(int i=0;i<N;i++){
-        int t; cin >> t;
-        if(t == 0) a[i].zero = 1;
-        else a[i].one = 1;
-    }
-    LazySegTree<MONOID> seg(a);
-    for(int i=0;i<Q;i++){
-        int t, l, r; cin >> t >> l >> r;
-        if(t == 1){
-            seg.update(l-1, r, true);
-        } else {
-            cout << seg.get(l-1, r).inv << endl;
+    int n, q;
+    while(cin >> n >> q){
+        LazySegTree<RUSQ> seg(n);
+        for(int i=0;i<q;i++){
+            int t; cin >> t;
+            if(t == 0){
+                int s, t, x; cin >> s >> t >> x;
+                seg.update(s, t+1, make_pair(x, true));
+            } else {
+                int s, t; cin >> s >> t;
+                cout << seg.get(s, t+1) << endl;
+            }
         }
     }
 }
