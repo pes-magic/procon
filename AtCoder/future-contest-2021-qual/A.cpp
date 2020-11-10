@@ -2,9 +2,52 @@
 #include <vector>
 #include <queue>
 #include <cassert>
+#include <algorithm>
+#include <numeric>
+#include <random>
+#include <chrono>
 #include <functional>
+#include <cstdlib>
 
 using namespace std;
+
+class Timer {
+public:
+	explicit Timer()
+		: mStart(chrono::system_clock::now())
+	{}
+	void start() { mStart = chrono::system_clock::now(); }
+	double sec() const {
+		auto t = chrono::system_clock::now();
+		return 1e-6 * chrono::duration_cast<std::chrono::microseconds>(t - mStart).count();
+	}
+private:
+	chrono::system_clock::time_point mStart;
+};
+
+class XorShift {
+public:
+	using result_type = uint32_t;
+	explicit XorShift(result_type seed){ init(seed); }
+	void init(result_type s){
+		x = 1812433253U * (s ^ (s >> 30));
+		y = 1812433253U * (x ^ (x >> 30)) + 1;
+		z = 1812433253U * (y ^ (y >> 30)) + 2;
+		w = 1812433253U * (z ^ (z >> 30)) + 3;
+	}
+	static constexpr result_type min() { return numeric_limits<result_type>::min(); }
+	static constexpr result_type max() { return numeric_limits<result_type>::max(); }
+	result_type operator() () {
+		result_type t = x ^ (x << 11);
+		x = y; y = z; z = w;
+		return w = (w ^ (w >> 19)) ^ (t ^ (t >> 8));
+	}
+private:
+	result_type x;
+	result_type y;
+	result_type z;
+	result_type w;
+};
 
 string naive(const vector<int>& x, const vector<int>& y){
     string s = "";
@@ -21,7 +64,7 @@ string naive(const vector<int>& x, const vector<int>& y){
     return s;
 }
 
-string solve(const vector<int>& _x, const vector<int>& _y){
+string solve(const vector<int>& _x, const vector<int>& _y, int startX = 0, int startY = 0){
     auto x = _x;
     auto y = _y;
     vector<vector<int>> board(20, vector<int>(20, -1));
@@ -31,7 +74,7 @@ string solve(const vector<int>& _x, const vector<int>& _y){
     const int INF = 1000000;
     vector<int> dp(20*20*101*101);
     vector<int> prev(20*20*101*101);
-    int curX = 0, curY = 0;
+    int curX = startX, curY = startY;
     auto toIdx = [](int px, int py, int s0, int s1){ return ((px*20+py)*101+s0)*101+s1; };
     auto getX = [](int idx){ return idx/101/101/20; };
     auto getY = [](int idx){ return idx/101/101%20; };
@@ -174,8 +217,197 @@ string solve(const vector<int>& _x, const vector<int>& _y){
     return res;
 }
 
-int main(){
+double highTemp = 4.979906972778812;
+double lowTemp = 0.04497702913927723;
+double tempMove = 0.864176222096778;
+int ITER = 10000;
+
+string anneal(const vector<int>& _x, const vector<int>& _y){
+    auto x = _x;
+    auto y = _y;
+    vector<int> firstOrder;
+    vector<int> putX(100), putY(100);
+    vector<vector<int>> board(20, vector<int>(20, -1));
+    for(int i=0;i<100;i++){
+        if(x[i] >= 10 && y[i] >= 10){
+            putX[i] = x[i];
+            putY[i] = y[i];
+        } else {
+            firstOrder.push_back(i);
+        }
+        board[x[i]][y[i]] = i;
+    }
+    int idx = 0;
+    for(int px=10;px<20;px++){
+        for(int py=10;py<20;py++){
+            if(board[px][py] == -1){
+                board[px][py] = firstOrder[idx];
+                putX[firstOrder[idx]] = px;
+                putY[firstOrder[idx]] = py;
+                ++idx;
+            }
+        }
+    }
+    int curBest = 0;
+    vector<int> bestFirstOrder = firstOrder;
+    vector<int> bestPutX = putX;
+    vector<int> bestPutY = putY;
+    int curX = 0, curY = 0;
+    for(auto& t : firstOrder){
+        curBest += abs(x[t] - curX) + abs(y[t] - curY);
+        curX = x[t];
+        curY = y[t];
+    }
+    for(int i=firstOrder.size()-1;i>=0;i--){
+        curBest += abs(curX - putX[firstOrder[i]]) + abs(curY - putY[firstOrder[i]]);
+        curX = putX[firstOrder[i]];
+        curY = putY[firstOrder[i]];
+    }
+    for(int i=0;i<100;i++){
+        curBest += abs(curX - putX[i]) + abs(curY - putY[i]);
+        curX = putX[i];
+        curY = putY[i];
+    }
+    XorShift gen(1000000007);
+    int curScore = curBest;
+    auto typeGen = uniform_int_distribution<int>(0, 1);
+    auto orderGen = uniform_int_distribution<int>(1, firstOrder.size()-2);
+    auto probGen = uniform_real_distribution<>(0.0, 1.0);
+    Timer timer;
+    const double timeLimit = 2.0;
+    while(timer.sec() < timeLimit){
+        const double curTemp = highTemp + pow(timer.sec()/timeLimit, tempMove) * (lowTemp - highTemp);
+        for(int _=0;_<ITER;_++){
+            int a = 0, b = 0;
+            while(a == b){
+                a = orderGen(gen);
+                b = orderGen(gen);
+            }
+            if(a > b) swap(a, b);
+            int type = typeGen(gen);
+            if(type == 0){
+                int newScore = curScore;
+                if(a == 0){
+                    newScore -= x[firstOrder[a]] + y[firstOrder[a]];
+                    newScore -= abs(putX[firstOrder[a]] - putX[0]) + abs(putY[firstOrder[a]] - putY[0]);
+                    newScore += x[firstOrder[b]] + y[firstOrder[b]];
+                    newScore += abs(putX[firstOrder[b]] - putX[0]) + abs(putY[firstOrder[b]] - putY[0]);
+                } else {
+                    newScore -= abs(x[firstOrder[a]] - x[firstOrder[a-1]]) + abs(y[firstOrder[a]] - y[firstOrder[a-1]]);
+                    newScore -= abs(putX[firstOrder[a]] - putX[firstOrder[a-1]]) + abs(putY[firstOrder[a]] - putY[firstOrder[a-1]]);
+                    newScore += abs(x[firstOrder[b]] - x[firstOrder[a-1]]) + abs(y[firstOrder[b]] - y[firstOrder[a-1]]);
+                    newScore += abs(putX[firstOrder[b]] - putX[firstOrder[a-1]]) + abs(putY[firstOrder[b]] - putY[firstOrder[a-1]]);
+                }
+                if(b == firstOrder.size()-1){
+                    newScore -= abs(x[firstOrder[b]] - putX[firstOrder[b]]) + abs(y[firstOrder[b]] - putY[firstOrder[b]]);
+                    newScore += abs(x[firstOrder[a]] - putX[firstOrder[a]]) + abs(y[firstOrder[a]] - putY[firstOrder[a]]);
+                } else {
+                    newScore -= abs(x[firstOrder[b]] - x[firstOrder[b+1]]) + abs(y[firstOrder[b]] - y[firstOrder[b+1]]);
+                    newScore -= abs(putX[firstOrder[b]] - putX[firstOrder[b+1]]) + abs(putY[firstOrder[b]] - putY[firstOrder[b+1]]);
+                    newScore += abs(x[firstOrder[a]] - x[firstOrder[b+1]]) + abs(y[firstOrder[a]] - y[firstOrder[b+1]]);
+                    newScore += abs(putX[firstOrder[a]] - putX[firstOrder[b+1]]) + abs(putY[firstOrder[a]] - putY[firstOrder[b+1]]);
+                }
+                if(curScore > newScore || probGen(gen) < exp((curScore - newScore)/curTemp)){
+                    curScore = newScore;
+                    reverse(firstOrder.begin()+a, firstOrder.begin()+b+1);
+                    if(curBest > curScore){
+                        curBest = curScore;
+                        bestFirstOrder = firstOrder;
+                    }
+                }
+            } else {
+                int newScore = curScore;
+                if(a == 0){
+                    newScore -= abs(putX[firstOrder[a]] - putX[0]) + abs(putY[firstOrder[a]] - putY[0]);
+                    newScore += abs(putX[firstOrder[b]] - putX[0]) + abs(putY[firstOrder[b]] - putY[0]);
+                    if(a+1 != b){
+                        newScore -= abs(putX[firstOrder[a]] - putX[firstOrder[a+1]]) + abs(putY[firstOrder[a]] - putY[firstOrder[a+1]]);
+                        newScore += abs(putX[firstOrder[b]] - putX[firstOrder[a+1]]) + abs(putY[firstOrder[b]] - putY[firstOrder[a+1]]);
+                    }
+                } else {
+                    newScore -= abs(putX[firstOrder[a]] - putX[firstOrder[a-1]]) + abs(putY[firstOrder[a]] - putY[firstOrder[a-1]]);
+                    newScore += abs(putX[firstOrder[b]] - putX[firstOrder[a-1]]) + abs(putY[firstOrder[b]] - putY[firstOrder[a-1]]);
+                    if(a+1 != b){
+                        newScore -= abs(putX[firstOrder[a]] - putX[firstOrder[a+1]]) + abs(putY[firstOrder[a]] - putY[firstOrder[a+1]]);
+                        newScore += abs(putX[firstOrder[b]] - putX[firstOrder[a+1]]) + abs(putY[firstOrder[b]] - putY[firstOrder[a+1]]);
+                    }
+                }
+                if(b == firstOrder.size() - 1){
+                    newScore -= abs(x[firstOrder[b]] - putX[firstOrder[b]]) + abs(y[firstOrder[b]] - putY[firstOrder[b]]);
+                    newScore += abs(x[firstOrder[b]] - putX[firstOrder[a]]) + abs(y[firstOrder[b]] - putY[firstOrder[a]]);
+                    if(b-1 != a){
+                        newScore -= abs(putX[firstOrder[b]] - putX[firstOrder[b-1]]) + abs(putY[firstOrder[b]] - putY[firstOrder[b-1]]);
+                        newScore += abs(putX[firstOrder[a]] - putX[firstOrder[b-1]]) + abs(putY[firstOrder[a]] - putY[firstOrder[b-1]]);
+                    }
+                } else {
+                    if(b-1 != a){
+                        newScore -= abs(putX[firstOrder[b]] - putX[firstOrder[b-1]]) + abs(putY[firstOrder[b]] - putY[firstOrder[b-1]]);
+                        newScore += abs(putX[firstOrder[a]] - putX[firstOrder[b-1]]) + abs(putY[firstOrder[a]] - putY[firstOrder[b-1]]);
+                    }
+                    newScore -= abs(putX[firstOrder[b]] - putX[firstOrder[b+1]]) + abs(putY[firstOrder[b]] - putY[firstOrder[b+1]]);
+                    newScore += abs(putX[firstOrder[a]] - putX[firstOrder[b+1]]) + abs(putY[firstOrder[a]] - putY[firstOrder[b+1]]);
+                }
+                int v0 = firstOrder[a];
+                int v1 = firstOrder[b];
+                if(v0 > 0 && v1 != v0-1){
+                    newScore -= abs(putX[v0] - putX[v0-1]) + abs(putY[v0] - putY[v0-1]);
+                    newScore += abs(putX[v1] - putX[v0-1]) + abs(putY[v1] - putY[v0-1]);
+                }
+                if(v0 < 99 && v1 != v0+1){
+                    newScore -= abs(putX[v0] - putX[v0+1]) + abs(putY[v0] - putY[v0+1]);
+                    newScore += abs(putX[v1] - putX[v0+1]) + abs(putY[v1] - putY[v0+1]);
+                }
+                if(v1 > 0 && v0 != v1-1){
+                    newScore -= abs(putX[v1] - putX[v1-1]) + abs(putY[v1] - putY[v1-1]);
+                    newScore += abs(putX[v0] - putX[v1-1]) + abs(putY[v0] - putY[v1-1]);
+                }
+                if(v1 < 99 && v0 != v1+1){
+                    newScore -= abs(putX[v1] - putX[v1+1]) + abs(putY[v1] - putY[v1+1]);
+                    newScore += abs(putX[v0] - putX[v1+1]) + abs(putY[v0] - putY[v1+1]);
+                }
+                if(curScore > newScore || probGen(gen) < exp((curScore - newScore)/curTemp)){
+                    curScore = newScore;
+                    swap(putX[v0], putX[v1]);
+                    swap(putY[v0], putY[v1]);
+                    if(curBest > curScore){
+                        curBest = curScore;
+                        bestPutX = putX;
+                        bestPutY = putY;
+                    }
+                }
+            }
+        }
+    }
+    string res = "";
+    curX = 0, curY = 0;
+    for(auto& t : bestFirstOrder){
+        if(curX < x[t]) res += string(x[t]-curX, 'D');
+        if(curX > x[t]) res += string(curX-x[t], 'U');
+        if(curY < y[t]) res += string(y[t]-curY, 'R');
+        if(curY > y[t]) res += string(curY-y[t], 'L');
+        res += 'I';
+        curX = x[t];
+        curY = y[t];
+    }
+    for(int i=bestFirstOrder.size()-1;i>=0;i--){
+        if(curX < bestPutX[bestFirstOrder[i]]) res += string(bestPutX[bestFirstOrder[i]]-curX, 'D');
+        if(curX > bestPutX[bestFirstOrder[i]]) res += string(curX-bestPutX[bestFirstOrder[i]], 'U');
+        if(curY < bestPutY[bestFirstOrder[i]]) res += string(bestPutY[bestFirstOrder[i]]-curY, 'R');
+        if(curY > bestPutY[bestFirstOrder[i]]) res += string(curY-bestPutY[bestFirstOrder[i]], 'L');
+        res += 'O';
+        curX = bestPutX[bestFirstOrder[i]];
+        curY = bestPutY[bestFirstOrder[i]];
+    }
+    res += solve(bestPutX, bestPutY, curX, curY);
+    return res;
+}
+
+int main(int argc, char *argv[]){
+    if(argc >= 2) highTemp = atof(argv[1]);
+    if(argc >= 3) lowTemp = atof(argv[2]);
+    if(argc >= 4) tempMove = atof(argv[3]);
+    if(argc >= 5) ITER = (int)atof(argv[4]);
     vector<int> x(100), y(100);
     for(int i=0;i<100;i++) cin >> x[i] >> y[i];
-    cout << solve(x, y) << endl;
+    cout << anneal(x, y) << endl;
 }
