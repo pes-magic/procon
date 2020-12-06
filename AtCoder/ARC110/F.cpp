@@ -9,20 +9,17 @@ vector<int> solve(const vector<int>& _P){
     vector<int> res;
     const int N = P.size();
     while(true){
-        bool ok = true;
-        for(int i=0;i<N;i++) if(P[i] != i) ok = false;
-        if(ok) break;
-        for(int i=0;i<N;i++){
-            if(P[i] != 0 && ((i+P[i])%N == P[i] || i == P[(i+P[i])%N])){
-                res.push_back(i);
-                swap(P[i], P[(i+P[i])%N]);
-                break;
-            }
-            if(i == N-1){
-                int t = rand()%N;
-                res.push_back(t);
-                swap(P[t], P[(t+P[t])%N]);
-            }
+        int onePos;
+        for(int i=0;i<N;i++) if(P[i] == 1) onePos = i;
+        int len = 1;
+        for(int i=2;i<N;i++){
+            if(P[(onePos+i-1)%N] != i) break;
+            ++len;
+        }
+        if(len == N-1 && onePos == 1) break;
+        for(int i=0;i<len;i++){
+            res.push_back(onePos);
+            swap(P[onePos], P[(onePos+P[onePos])%N]);
         }
     }
     return res;
