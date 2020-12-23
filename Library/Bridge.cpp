@@ -22,18 +22,22 @@ private:
         ++curOrder;
         for(auto& e : g[pos]){
             if(e == prev) continue;
-            if(ord[e] == -1) search_(g, e, pos, curOrder);
+            if(ord[e] == -1){
+                search_(g, e, pos, curOrder);
+                pre[pos] = min(pre[pos], pre[e]);
+            } else {
+                pre[pos] = min(pre[pos], ord[e]);
+            }
             if(ord[pos] < pre[e]){
                 bridge.emplace_back(pos, e);
             } else {
                 edge.emplace_back(pos, e);
             }
-            pre[pos] = min(pre[pos], pre[e]);
         }
     }
 public:
-    const vector<pair<int, int>> getBridge() const { return bridge; }
-    const vector<pair<int, int>> getEdge() const { return edge; }
+    const vector<pair<int, int>>& getBridge() const { return bridge; }
+    const vector<pair<int, int>>& getEdge() const { return edge; }
 private:
     vector<int> ord;
     vector<int> pre;
