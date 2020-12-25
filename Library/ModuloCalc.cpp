@@ -22,9 +22,9 @@ int moduloLog(int a, int target){
     map<int, int> mp;
     for(int i=0;i<sq;i++){
         if(!mp.count(m)) mp[m] = i;
-        m = (m * X) % P;
+        m = (m * a) % MOD;
     }
-    auto inv = modPow(modPow(X, sq), MOD-2);
+    auto inv = modPow(modPow(a, sq), MOD-2);
     for(int i=0;i<=sq;i++){
         if(mp.count(target)){
             return i * sq + mp[target];
