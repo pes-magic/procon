@@ -210,10 +210,10 @@ std::string naiveSearch(const vector<int>& start, const vector<int>& target, int
             int cur = N * N - 1 - (x * N + y);
             int dst = N * N - 1 - (nx * N + ny);
             auto next = (p&mask(4*N*N));
-            int value = (next >> (4*dst))%16;
+            unsigned long long value = (next >> (4*dst))%16;
             next &= ~(15ULL << (4*dst));
             next |= (value << (4*cur));
-            next |= ((4*nx+ny) << (4*N*N));
+            next |= ((4ULL*nx+ny) << (4*N*N));
             if(mp.count(next)) continue;
             mp[next] = (p | (((unsigned long long)i) << (4*N*N+4)));
             qu.push(next);
@@ -380,7 +380,7 @@ std::string solveSlide(const vector<int>& start, const vector<int>& target){
         assert(false);
     };
     string res = "";
-    while(lineX < N-2 || lineY < N-2){
+    while(lineX < N-3 || lineY < N-3){
         int from, to, dir;
         if(lineX == lineY){
             if(getDist(toValue(lineX, N-1), blankPos) <= getDist(toValue(N-1, lineY), blankPos)){
