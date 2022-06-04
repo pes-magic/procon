@@ -224,17 +224,31 @@ std::string naiveSearch(const vector<int>& start, const vector<int>& target, int
 }
 
 //------------------------------------------------------------------------------
+int estimateCost(const vector<int>& start, const vector<int>& target, int N){
+    MinCostFlow<int, int> mcf(2*N*N+2);
+    auto getDist = [&](int src, int dst){
+        return abs(src%N - dst%N) + abs(src/N - dst/N);
+    };
+    for(int i=0;i<N*N;i++){
+        mcf.addEdge(0, i+1, 1, 0);
+        mcf.addEdge(N*N+1+i, 2*N*N+1, 1, 0);
+        for(int j=0;j<N*N;j++){
+            if(start[i] != target[j]) continue;
+            mcf.addEdge(i+1, j+N*N+1, 1, getDist(i, j));
+        }
+    }
+    return mcf.solve(0, 2*N*N+1, N*N).first;
+}
+
+//------------------------------------------------------------------------------
 template<int N>
 std::string solveSlide(const vector<int>& start, const vector<int>& target){
     int doubleNum = 0;
     vector<int> restNum(16, 0);
     auto board = start;
-    int blankPos = -1;
     for(auto& t : board) ++restNum[t];
     for(auto& t : restNum) if(t >= 2) ++doubleNum;
-    for(int i=0;i<start.size();i++) if(!start[i]) blankPos = i;
     vector<int> lock(N*N, 0);
-    static int step[N*N][N*N];
     static int step2[N*N][N*N][N*N];
     static int prev2[N*N][N*N][N*N];
     int lineX = 0, lineY = 0;
@@ -381,6 +395,8 @@ std::string solveSlide(const vector<int>& start, const vector<int>& target){
     };
     string res = "";
     while(lineX < N-3 || lineY < N-3){
+        int blankPos = -1;
+        for(int i=0;i<board.size();i++) if(!board[i]) blankPos = i;
         int from, to, dir;
         if(lineX == lineY){
             if(getDist(toValue(lineX, N-1), blankPos) <= getDist(toValue(N-1, lineY), blankPos)){
@@ -452,6 +468,7 @@ public:
         : N(vs.size())
         , mBestSize(0)
         , mBestFill(0)
+        , mBestEstimate(1 << 30)
         , mLowNum(0)
         , mRoot(vs.size()*vs.size(), -1)
         , mSize(vs.size()*vs.size(), 1)
@@ -521,7 +538,19 @@ private:
         return mSize[getRoot_(v)];
     }
     void search_(int pos){
-        if(pos == N*N-1 || timer.msec() > 2000) return;
+        if(timer.msec() > 2000){
+            if(mBestSize == N*N-1) mBestSize = N*N;
+            return;
+        }
+        if(pos == N*N-1){
+            mCurTarget[pos] = 0;
+            int score = estimateCost(mStart, mCurTarget, N);
+            if(score < mBestEstimate){
+                mBestEstimate = score;
+                mTarget = mCurTarget;
+            }
+
+        }
         if(max(1, N*N-N-pos) <= mLowNum) return;
         const int x = pos/N;
         const int y = pos%N;
@@ -581,7 +610,7 @@ private:
                     mTarget = mCurTarget;
                 }
                 search_(pos+1);
-                if(mBestSize == N*N-1) break;
+                if(mBestSize == N*N) break;
             }
             if(start == 0){
                 mOuter[pos] = 0;
@@ -665,25 +694,12 @@ private:
         if(N == 8) return solveSlide<8>(mStart, mTarget);
         if(N == 9) return solveSlide<9>(mStart, mTarget);
         return solveSlide<10>(mStart, mTarget);
-        // MinCostFlow<int, int> mcf(2*N*N+2);
-        // auto getDist = [&](int src, int dst){
-        //     return abs(src%N - dst%N) + abs(src/N - dst/N);
-        // };
-        // for(int i=0;i<N*N;i++){
-        //     mcf.addEdge(0, i+1, 1, 0);
-        //     mcf.addEdge(N*N+1+i, 2*N*N+1, 1, 0);
-        //     for(int j=0;j<N*N;j++){
-        //         if(mStart[i] != mTarget[j]) continue;
-        //         int dist = abs(i%N - j%N) + abs(i/N - j/N);
-        //         mcf.addEdge(i+1, j+N*N+1, 1, getDist(i, j));
-        //     }
-        // }
-        // auto res = mcf.solve(0, 2*N*N+1, N*N);
     }
 private:
     int N;
     int mBestSize;
     int mBestFill;
+    int mBestEstimate;
     int mLowNum;
     vector<int> mRoot;
     vector<int> mSize;
