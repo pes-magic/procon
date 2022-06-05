@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <cstring>
 #include <iostream>
+#include <map>
 #include <queue>
 #include <unordered_map>
 #include <vector>
@@ -224,6 +225,125 @@ std::string naiveSearch(const vector<int>& start, const vector<int>& target, int
 }
 
 //------------------------------------------------------------------------------
+template<int N>
+std::string starSearch(const vector<int>& start, const vector<int>& target, int hParam){
+    using State = array<unsigned long long, N==6 ? 3 : (N==5 ? 2 : 1)>;
+    auto printState = [](const State& state){
+        for(int i=0;i<N;i++){
+            for(int j=0;j<N;j++){
+                int shift = 4*(i*N+j);
+                int value = (state[shift/64] >> (shift%64))%16;
+                cout << value << " ";
+            }
+            cout << endl;
+        }
+    };
+    auto blankPos = [](const vector<int>& v){
+        for(int i=0;i<v.size();i++) if(!v[i]) return i;
+    };
+    auto toState = [](const vector<int>& v){
+        int idx = 0;
+        int shift = 0;
+        State res;
+        fill(res.begin(), res.end(), 0LL);
+        for(auto& t : v){
+            res[shift/64] |= ((unsigned long long)t) << (shift%64);
+            shift += 4;
+        }
+        return res;
+    };
+    auto getDist = [](int src, int dst){
+        return abs(src%N - dst%N) + abs(src/N - dst/N);
+    };
+    const int dx[] = {0, -1, 0, 1};
+    const int dy[] = {-1, 0, 1, 0};
+    auto movePiece = [&](int bx, int by, int dir, State& state){
+        const int nx = bx + dx[dir];
+        const int ny = by + dy[dir];
+        const int p0 = bx * N + by;
+        if(nx < 0 || N <= nx || ny < 0 || N <= ny) return p0;
+        const int p1 = nx * N + ny;
+        int idx0 = 4*p0/64;
+        int s0 = 4*p0%64;
+        int idx1 = 4*p1/64;
+        int s1 = 4*p1%64;
+        unsigned long long value = (state[idx1] >> s1)%16;
+        state[idx0] |= (value << s0);
+        state[idx1] &= ~(15ULL << s1);
+        return p1;
+    };
+    vector<vector<int>> distMap(N*N, vector<int>(16, 1 << 30));
+    for(int i=0;i<N*N;i++){
+        for(int j=0;j<N*N;j++){
+            distMap[j][target[i]] = min(distMap[j][target[i]], getDist(i, j));
+        }
+    }
+    auto heuristic = [&](const State& state){
+        long long res = 0;
+        int shift = 0;
+        for(int i=0;i<N*N;i++){
+            int value = (state[shift/64] >> (shift%64))%16;
+            res += distMap[i][value];
+            shift += 4;
+        }
+        return hParam * res;
+    };
+    State initial = toState(start);
+    State goal = toState(target);
+    const int initialBlank = blankPos(start);
+    const int goalBlank = blankPos(target);
+    array<map<State, int>, N*N> mp;
+    mp[initialBlank][initial] = -1;
+    priority_queue<pair<long long, State>, vector<pair<long long, State>>, greater<pair<long long, State>>> qu;
+    qu.emplace(initialBlank + (1LL << 24) * heuristic(initial), initial);
+    bool first = true;
+    while(!qu.empty()){
+        if(timer.msec() >= 2500) return "x";
+        auto nd = qu.top(); qu.pop();
+        if(nd.second == goal){
+            string res = "";
+            int blank = goalBlank;
+            State& state = nd.second;
+            while(true){
+                int p = mp[blank][state];
+                if(p == -1) break;
+                int dir = p%4;
+                res.push_back("RDLU"[dir]);
+                blank = movePiece(blank/N, blank%N, dir, state);
+            }
+            reverse(res.begin(), res.end());
+            return res;
+        }
+        const int curBlank = nd.first%256;
+        const int curStep = (nd.first/256)%(1<<16);
+        const long long curH = (nd.first/(1<<24));
+        if(!first && curH > mp[curBlank][nd.second]/4) continue;
+        first = false;
+        const int bx = curBlank/N;
+        const int by = curBlank%N;
+        for(int i=0;i<4;i++){
+            int nextBlank = movePiece(bx, by, i, nd.second);
+            if(curBlank == nextBlank) continue;
+            const int nextStep = curStep+1;
+            const long long nextH = nextStep + heuristic(nd.second);
+            if(mp[nextBlank].count(nd.second)){
+                const long long curBest = mp[nextBlank][nd.second]/4;
+                if(curBest > nextH){
+                    mp[nextBlank][nd.second] = 4 * nextH + (i^2);
+                    qu.emplace(nextBlank + 256 * nextStep + (1LL << 24) * nextH, nd.second);
+                }
+            } else {
+                mp[nextBlank][nd.second] = 4 * nextH + (i^2);
+                qu.emplace(nextBlank + 256 * nextStep + (1LL << 24) * nextH, nd.second);
+            }
+            movePiece(bx+dx[i], by+dy[i], i^2, nd.second);
+        }
+    }
+    assert(false);
+    return "";
+}
+
+//------------------------------------------------------------------------------
 int estimateCost(const vector<int>& start, const vector<int>& target, int N){
     MinCostFlow<int, int> mcf(2*N*N+2);
     auto getDist = [&](int src, int dst){
@@ -394,7 +514,22 @@ std::string solveSlide(const vector<int>& start, const vector<int>& target){
         assert(false);
     };
     string res = "";
+    string res2 = "";
     while(lineX < N-3 || lineY < N-3){
+        if(lineX == N-4 && lineY == N-4){
+            vector<int> lastStart((N-lineX)*(N-lineX));
+            vector<int> lastTarget((N-lineX)*(N-lineX));
+            int idx = 0;
+            for(int i=lineX;i<N;i++){
+                for(int j=lineY;j<N;j++){
+                    lastStart[idx] = board[i*N+j];
+                    lastTarget[idx] = target[i*N+j];
+                    ++idx;
+                }
+            }
+            auto rest = starSearch<4>(lastStart, lastTarget, 2);
+            if(rest[0] != 'x') res2 = res + rest;
+        }
         int blankPos = -1;
         for(int i=0;i<board.size();i++) if(!board[i]) blankPos = i;
         int from, to, dir;
@@ -458,6 +593,7 @@ std::string solveSlide(const vector<int>& start, const vector<int>& target){
         }
     }
     res.append(naiveSearch(lastStart, lastTarget, N-lineX));
+    if(!res2.empty() && res2.size() < res.size()) return res2;
     return res;
 }
 
@@ -549,7 +685,7 @@ private:
                 mBestEstimate = score;
                 mTarget = mCurTarget;
             }
-
+            return;
         }
         if(max(1, N*N-N-pos) <= mLowNum) return;
         const int x = pos/N;
