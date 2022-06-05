@@ -619,11 +619,9 @@ public:
     explicit Solver(const vector<string>& vs)
         : N(vs.size())
         , mBestSize(0)
-        , mBestFill(0)
         , mBestEstimate(1 << 30)
         , mLowNum(0)
         , mRoot(vs.size()*vs.size(), -1)
-        , mSize(vs.size()*vs.size(), 1)
         , mOuter(vs.size()*vs.size(), 0)
         , mCurTarget(vs.size()*vs.size(), -1)
         , mTarget(vs.size()*vs.size(), -1)
@@ -663,22 +661,21 @@ private:
     int getRoot_(int v) const {
         return mRoot[v] == -1 ? v : getRoot_(mRoot[v]);
     }
-    int getSize_(int v) const {
-        return mSize[getRoot_(v)];
+    void checkCandidate_(){
+        mCurTarget[N*N-1] = 0;
+        int score = estimateCost(mStart, mCurTarget, N);
+        if(score < mBestEstimate){
+            mBestEstimate = score;
+            mTarget = mCurTarget;
+            mBestSize = N*N-1;
+        }
+        if(timer.msec() > 1200){
+            if(mBestSize == N*N-1) mBestSize = N*N;
+        }
     }
     void search_(int pos){
         if(timer.msec() > 1200){
             if(mBestSize == N*N-1) mBestSize = N*N;
-            return;
-        }
-        if(pos == N*N-1){
-            mCurTarget[pos] = 0;
-            int score = estimateCost(mStart, mCurTarget, N);
-            if(score < mBestEstimate){
-                mBestEstimate = score;
-                // cout << mBestEstimate << endl;
-                mTarget = mCurTarget;
-            }
             return;
         }
         if(max(1, N*N-N-pos) <= mLowNum) return;
@@ -712,37 +709,28 @@ private:
             --mPanelNum[i];
             mLowNum -= i/8;
             bool ok = true;
-            int curSize = 1;
             if(start == 0){
                 mOuter[pos] = (i/4+1)/2;
             } else if(start == 1){
                 mRoot[pos] = rootY;
-                ++mSize[rootY];
                 --mOuter[rootY];
                 mOuter[rootY] += (i/4+1)/2;
                 if(!mOuter[rootY]) ok = false;
-                curSize = mSize[rootY];
             } else if(start == 2){
                 mRoot[pos] = rootX;
-                ++mSize[rootX];
                 --mOuter[rootX];
                 mOuter[rootX] += (i/4+1)/2;
                 if(!mOuter[rootX]) ok = false;
-                curSize = mSize[rootX];
             } else if(start == 3){
                 mRoot[pos] = rootY;
                 mRoot[rootX] = rootY;
-                mSize[rootY] += mSize[rootX] + 1;
                 mOuter[rootY] += (i/4+1)/2 + mOuter[rootX] - 2;
                 if(!mOuter[rootY]) ok = false;
-                curSize = mSize[rootY];
             }
-            if(ok || pos == N*N-2){
-                if(curSize > mBestSize || (curSize == mBestSize && pos+1 > mBestFill)){
-                    mBestSize = curSize;
-                    mBestFill = pos+1;
-                    mTarget = mCurTarget;
-                }
+            if(pos == N*N-2){
+                checkCandidate_();
+                if(mBestSize == N*N) break;
+            } else if(ok){
                 search_(pos+1);
                 if(mBestSize == N*N) break;
             }
@@ -750,18 +738,15 @@ private:
                 mOuter[pos] = 0;
             } else if(start == 1){
                 mRoot[pos] = -1;
-                --mSize[rootY];
                 ++mOuter[rootY];
                 mOuter[rootY] -= (i/4+1)/2;
             } else if(start == 2){
                 mRoot[pos] = -1;
-                --mSize[rootX];
                 ++mOuter[rootX];
                 mOuter[rootX] -= (i/4+1)/2;
             } else if(start == 3){
                 mRoot[pos] = -1;
                 mRoot[rootX] = -1;
-                mSize[rootY] -= mSize[rootX] + 1;
                 mOuter[rootY] -= (i/4+1)/2 + mOuter[rootX] - 2;
             }
             mCurTarget[pos] = -1;
@@ -779,11 +764,9 @@ private:
 private:
     int N;
     int mBestSize;
-    int mBestFill;
     int mBestEstimate;
     int mLowNum;
     vector<int> mRoot;
-    vector<int> mSize;
     vector<int> mOuter;
     vector<int> mTarget;
     vector<int> mCurTarget;
