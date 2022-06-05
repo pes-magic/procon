@@ -298,7 +298,7 @@ std::string starSearch(const vector<int>& start, const vector<int>& target, int 
     qu.emplace(initialBlank + (1LL << 24) * heuristic(initial), initial);
     bool first = true;
     while(!qu.empty()){
-        if(timer.msec() >= 2500) return "x";
+        if(timer.msec() >= 1400) return "x";
         auto nd = qu.top(); qu.pop();
         if(nd.second == goal){
             string res = "";
@@ -362,10 +362,9 @@ int estimateCost(const vector<int>& start, const vector<int>& target, int N){
 
 //------------------------------------------------------------------------------
 template<int N>
-std::string solveSlide(const vector<int>& start, const vector<int>& target){
+std::string solveSlideSub(vector<int>& board, const vector<int>& target, bool startX){
     int doubleNum = 0;
     vector<int> restNum(16, 0);
-    auto board = start;
     for(auto& t : board) ++restNum[t];
     for(auto& t : restNum) if(t >= 2) ++doubleNum;
     vector<int> lock(N*N, 0);
@@ -515,26 +514,12 @@ std::string solveSlide(const vector<int>& start, const vector<int>& target){
     };
     string res = "";
     string res2 = "";
-    while(lineX < N-3 || lineY < N-3){
-        if(lineX == N-4 && lineY == N-4){
-            vector<int> lastStart((N-lineX)*(N-lineX));
-            vector<int> lastTarget((N-lineX)*(N-lineX));
-            int idx = 0;
-            for(int i=lineX;i<N;i++){
-                for(int j=lineY;j<N;j++){
-                    lastStart[idx] = board[i*N+j];
-                    lastTarget[idx] = target[i*N+j];
-                    ++idx;
-                }
-            }
-            auto rest = starSearch<4>(lastStart, lastTarget, 2);
-            if(rest[0] != 'x') res2 = res + rest;
-        }
+    while(lineX < 1 || lineY < 1){
         int blankPos = -1;
         for(int i=0;i<board.size();i++) if(!board[i]) blankPos = i;
         int from, to, dir;
         if(lineX == lineY){
-            if(getDist(toValue(lineX, N-1), blankPos) <= getDist(toValue(N-1, lineY), blankPos)){
+            if(startX){
                 from = toValue(lineX, N-1);
                 to = toValue(lineX, lineY);
                 dir = -1;
@@ -582,22 +567,53 @@ std::string solveSlide(const vector<int>& start, const vector<int>& target){
             ++lineX;
         }
     }
-    vector<int> lastStart((N-lineX)*(N-lineX));
-    vector<int> lastTarget((N-lineX)*(N-lineX));
+    return res;
+}
+
+//------------------------------------------------------------------------------
+template<int N>
+std::string solveSlide(const vector<int>& start, const vector<int>& target){
+    auto boardA = start;
+    auto boardB = start;
+    string resA = solveSlideSub<N>(boardA, target, true);
+    string resB = solveSlideSub<N>(boardB, target, false);
+    vector<int> board;
+    string res;
+    if(resA.size() + estimateCost(boardA, target, N) < resB.size() + estimateCost(boardB, target, N)){
+        res = resA;
+        board = boardA;
+    } else {
+        res = resB;
+        board = boardB;
+    }
+    vector<int> lastStart((N-1)*(N-1));
+    vector<int> lastTarget((N-1)*(N-1));
     int idx = 0;
-    for(int i=lineX;i<N;i++){
-        for(int j=lineY;j<N;j++){
+    for(int i=1;i<N;i++){
+        for(int j=1;j<N;j++){
             lastStart[idx] = board[i*N+j];
             lastTarget[idx] = target[i*N+j];
             ++idx;
         }
     }
-    res.append(naiveSearch(lastStart, lastTarget, N-lineX));
-    if(!res2.empty() && res2.size() < res.size()) return res2;
+
+    res.append(solveSlide<N-1>(lastStart, lastTarget));
+
+    if(N == 4){
+        auto rest = starSearch<4>(start, target, 2);
+        if(rest[0] != 'x' && rest.size() < res.size()) res = rest;
+    }
     return res;
 }
 
 //------------------------------------------------------------------------------
+template<>
+std::string solveSlide<3>(const vector<int>& start, const vector<int>& target){
+    return naiveSearch(start, target, 3);
+}
+
+//------------------------------------------------------------------------------
+template<bool useNearDist>
 class Solver {
 public:
     explicit Solver(const vector<string>& vs)
@@ -613,11 +629,13 @@ public:
         , mTarget(vs.size()*vs.size(), -1)
         , mStart(vs.size()*vs.size(), 0)
         , mPanelNum(16, 0)
+        , mNearDist(vs.size()*vs.size(), vector<int>(16, 1 << 20))
     {
-        solve_(vs);
+        mResult = solve_(vs);
     }
+    const string& getResult() const { return mResult; }
 private:
-    void solve_(const vector<string>& vs){
+    string solve_(const vector<string>& vs){
         for(int i=0;i<N;i++){
             for(int j=0;j<N;j++){
                 const int v = isdigit(vs[i][j]) ? vs[i][j] - '0' : vs[i][j] - 'a' + 10;
@@ -626,45 +644,20 @@ private:
                 if(v >= 8) ++mLowNum;
             }
         }
+        {
+            auto getDist = [&](int src, int dst){
+                return abs(src%N - dst%N) + abs(src/N - dst/N);
+            };
+            for(int i=0;i<N*N;i++){
+                for(int j=0;j<N*N;j++){
+                    mNearDist[j][mStart[i]] = min(mNearDist[j][mStart[i]], getDist(i, j));
+                }
+            }
+        }
         search_(0);
-        fill(mPanelNum.begin(), mPanelNum.end(), 0);
-        for(int i=0;i<N;i++){
-            for(int j=0;j<N;j++){
-                const int v = isdigit(vs[i][j]) ? vs[i][j] - '0' : vs[i][j] - 'a' + 10;
-                ++mPanelNum[v];
-                if(mTarget[i*N+j] != -1) --mPanelNum[mTarget[i*N+j]];
-            }
-        }
-        mCurTarget = mTarget;
-        UnionFind uf(N*N);
-        for(int i=0;i<N;i++){
-            for(int j=0;j<N;j++){
-                if(mTarget[i*N+j] == -1) continue;
-                if(j+1 < N && mTarget[i*N+j+1] != -1){
-                    if((mTarget[i*N+j]&4) && (mTarget[i*N+j+1]&1)){
-                        uf.merge(i*N+j, i*N+j+1);
-                    }
-                }
-                if(i+1 < N && mTarget[i*N+j+N] != -1){
-                    if((mTarget[i*N+j]&8) && (mTarget[i*N+j+N]&2)){
-                        uf.merge(i*N+j, i*N+j+N);
-                    }
-                }
-            }
-        }
-        for(int i=0;i<N*N;i++){
-            if(mTarget[i] == -1){
-                mRoot[i] = -1;
-                mSize[i] = 1;
-            } else {
-                const int r = uf.getRoot(i);
-                mRoot[i] = i == r ? -1 : r;
-                mSize[i] = uf.getSize(r);
-            }
-        }
-        search2_(mBestFill);
+        if(mBestSize < N*N) return "";
 
-        cout << calcMove_() << endl;
+        return calcMove_();
 
     }
     int getRoot_(int v) const {
@@ -674,7 +667,7 @@ private:
         return mSize[getRoot_(v)];
     }
     void search_(int pos){
-        if(timer.msec() > 2000){
+        if(timer.msec() > 1200){
             if(mBestSize == N*N-1) mBestSize = N*N;
             return;
         }
@@ -683,6 +676,7 @@ private:
             int score = estimateCost(mStart, mCurTarget, N);
             if(score < mBestEstimate){
                 mBestEstimate = score;
+                // cout << mBestEstimate << endl;
                 mTarget = mCurTarget;
             }
             return;
@@ -705,7 +699,11 @@ private:
             if(mPanelNum[i]) cand.push_back(i);
         }
         sort(cand.begin(), cand.end(), [&](int a, int b){
-            return mPanelNum[a] > mPanelNum[b];
+            if(useNearDist){
+                return mNearDist[pos][a] < mNearDist[pos][b];
+            } else {
+                return mPanelNum[a] > mPanelNum[b];
+            }
         });
 
         for(int i : cand){
@@ -771,59 +769,6 @@ private:
             mLowNum += i/8;
         }
     }
-    void search2_(int pos){
-        if(pos == N*N || timer.msec() > 2100) return;
-        const int x = pos/N;
-        const int y = pos%N;
-        int start = 0;
-        if(y && (mCurTarget[pos-1]&4)) start |= 1;
-        if(x && (mCurTarget[pos-N]&8)) start |= 2;
-        const int rootY = (start&1) ? getRoot_(pos-1) : -1;
-        const int rootX = (start&2) ? getRoot_(pos-N) : -1;
-        for(int i=15;i>=0;i--){
-            if(!mPanelNum[i]) continue;
-            const int join = (start&i);
-            if(join == 3 && rootX == rootY) continue;
-            mCurTarget[pos] = i;
-            --mPanelNum[i];
-            bool ok = true;
-            int curSize = mBestSize;
-            if(join == 1){
-                mRoot[pos] = rootY;
-                ++mSize[rootY];
-                curSize = mSize[rootY];
-            } else if(join == 2){
-                mRoot[pos] = rootX;
-                ++mSize[rootX];
-                curSize = mSize[rootX];
-            } else if(join == 3){
-                mRoot[pos] = rootY;
-                mRoot[rootX] = rootY;
-                mSize[rootY] += mSize[rootX] + 1;
-                curSize = mSize[rootY];
-            }
-            if(curSize > mBestSize || (curSize == mBestSize && pos+1 > mBestFill)){
-                mBestSize = curSize;
-                mBestFill = pos+1;
-                mTarget = mCurTarget;
-            }
-            search2_(pos+1);
-            if(mBestSize == N*N-1 || mBestFill == N*N) break;
-            if(join == 1){
-                mRoot[pos] = -1;
-                --mSize[rootY];
-            } else if(join == 2){
-                mRoot[pos] = -1;
-                --mSize[rootX];
-            } else if(join == 3){
-                mRoot[pos] = -1;
-                mRoot[rootX] = -1;
-                mSize[rootY] -= mSize[rootX] + 1;
-            }
-            mCurTarget[pos] = -1;
-            ++mPanelNum[i];
-        }
-    }
     std::string calcMove_() const {
         if(N == 6) return solveSlide<6>(mStart, mTarget);
         if(N == 7) return solveSlide<7>(mStart, mTarget);
@@ -844,6 +789,8 @@ private:
     vector<int> mCurTarget;
     vector<int> mStart;
     vector<int> mPanelNum;
+    vector<vector<int>> mNearDist;
+    string mResult;
 };
 
 //------------------------------------------------------------------------------
@@ -851,5 +798,12 @@ int main(){
     int N, T; cin >> N >> T;
     vector<string> vs(N);
     for(auto& t : vs) cin >> t;
-    Solver solver(vs);
+    Solver<false> solver(vs);
+    timer.start();
+    Solver<true> solver2(vs);
+    string res = solver.getResult();
+    if(res.empty() || (!solver2.getResult().empty() && solver2.getResult().size() < res.size())){
+        res = solver2.getResult();
+    }
+    cout << res << endl;
 }
