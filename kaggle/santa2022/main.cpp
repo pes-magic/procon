@@ -459,11 +459,11 @@ vector<P2> optimizeByMCF(const vector<P2>& current, const Image& image, const P2
     }
     const int dx[] = {-1, 0, 1, 0};
     const int dy[] = {0, -1, 0, 1};
-    const int dx2[] = {-1, -1, -1, 0, 1, 1, 1, 0};
-    const int dy2[] = {1 ,0, -1, -1, -1, 0, 1, 1};
 
     int curGroup = current.size();
     double addCost = 0.0;
+
+    vector<vector<P2>> warp(257, vector<P2>(257, P2(-1, -1)));
 
     {
         vector<vector<int>> visit(257, vector<int>(257, -1));
@@ -509,26 +509,26 @@ vector<P2> optimizeByMCF(const vector<P2>& current, const Image& image, const P2
                     }
                     const int bx = (x-1)/2 - 64;
                     const int by = (y-1)/2 - 64;
-                    // if(y-2 >= 1 && path[x+1][y-2]){
-                    //     if(visit[x-1][y] == visit[x+1][y-2]) continue;
-                    //     double c = diagMove + colorCost(bx, by, bx+1, by-1) + colorCost(bx, by+1, bx+1, by) - cost[x-1][y] - cost[x+1][y-2];
-                    //     vector<P2> ps;
-                    //     ps.emplace_back(x-1, y-1);
-                    //     ps.emplace_back(x-1, y+1);
-                    //     ps.emplace_back(x+1, y-3);
-                    //     ps.emplace_back(x+1, y-1);
-                    //     edges.emplace_back(make_pair(c, ps), make_pair(visit[x-1][y], visit[x+1][y-2]));
-                    // }
-                    // if(y+2 <= 255 && path[x+1][y+2]){
-                    //     if(visit[x-1][y] == visit[x+1][y+2]) continue;
-                    //     double c = diagMove + colorCost(bx, by, bx+1, by+1) + colorCost(bx, by+1, bx+1, by+2) - cost[x-1][y] - cost[x+1][y+2];
-                    //     vector<P2> ps;
-                    //     ps.emplace_back(x-1, y-1);
-                    //     ps.emplace_back(x-1, y+1);
-                    //     ps.emplace_back(x+1, y+1);
-                    //     ps.emplace_back(x+1, y+3);
-                    //     edges.emplace_back(make_pair(c, ps), make_pair(visit[x-1][y], visit[x+1][y+2]));
-                    // }
+                    if(y-2 >= 1 && path[x+1][y-2]){
+                        if(visit[x-1][y] == visit[x+1][y-2]) continue;
+                        double c = diagMove + colorCost(bx, by, bx+1, by-1) + colorCost(bx, by+1, bx+1, by) - cost[x-1][y] - cost[x+1][y-2];
+                        vector<P2> ps;
+                        ps.emplace_back(x-1, y-1);
+                        ps.emplace_back(x-1, y+1);
+                        ps.emplace_back(x+1, y-3);
+                        ps.emplace_back(x+1, y-1);
+                        edges.emplace_back(make_pair(c, ps), make_pair(visit[x-1][y], visit[x+1][y-2]));
+                    }
+                    if(y+2 <= 255 && path[x+1][y+2]){
+                        if(visit[x-1][y] == visit[x+1][y+2]) continue;
+                        double c = diagMove + colorCost(bx, by, bx+1, by+1) + colorCost(bx, by+1, bx+1, by+2) - cost[x-1][y] - cost[x+1][y+2];
+                        vector<P2> ps;
+                        ps.emplace_back(x-1, y-1);
+                        ps.emplace_back(x-1, y+1);
+                        ps.emplace_back(x+1, y+1);
+                        ps.emplace_back(x+1, y+3);
+                        edges.emplace_back(make_pair(c, ps), make_pair(visit[x-1][y], visit[x+1][y+2]));
+                    }
                 }
                 if(path[x][y-1]){
                     if(path[x][y+1]){
@@ -543,32 +543,31 @@ vector<P2> optimizeByMCF(const vector<P2>& current, const Image& image, const P2
                     }
                     const int bx = (x-1)/2 - 64;
                     const int by = (y-1)/2 - 64;
-                    // if(x-2 >= 1 && path[x-2][y+1]){
-                    //     if(visit[x][y-1] == visit[x-2][y+1]) continue;
-                    //     double c = diagMove + colorCost(bx, by, bx-1, by+1) + colorCost(bx+1, by, bx, by+1) - cost[x][y-1] - cost[x-2][y+1];
-                    //     vector<P2> ps;
-                    //     ps.emplace_back(x-1, y-1);
-                    //     ps.emplace_back(x+1, y-1);
-                    //     ps.emplace_back(x-3, y+1);
-                    //     ps.emplace_back(x-1, y+1);
-                    //     edges.emplace_back(make_pair(c, ps), make_pair(visit[x][y-1], visit[x-2][y+1]));
-                    // }
-                    // if(x+2 <= 255 && path[x+2][y+1]){
-                    //     if(visit[x][y-1] == visit[x+2][y+1]) continue;
-                    //     double c = diagMove + colorCost(bx, by, bx+1, by+1) + colorCost(bx+1, by, bx+2, by+1) - cost[x][y-1] - cost[x+2][y+1];
-                    //     vector<P2> ps;
-                    //     ps.emplace_back(x-1, y-1);
-                    //     ps.emplace_back(x+1, y-1);
-                    //     ps.emplace_back(x+1, y+1);
-                    //     ps.emplace_back(x+3, y+1);
-                    //     edges.emplace_back(make_pair(c, ps), make_pair(visit[x][y-1], visit[x+2][y+1]));
-                    // }
+                    if(x-2 >= 1 && path[x-2][y+1]){
+                        if(visit[x][y-1] == visit[x-2][y+1]) continue;
+                        double c = diagMove + colorCost(bx, by, bx-1, by+1) + colorCost(bx+1, by, bx, by+1) - cost[x][y-1] - cost[x-2][y+1];
+                        vector<P2> ps;
+                        ps.emplace_back(x-1, y-1);
+                        ps.emplace_back(x+1, y-1);
+                        ps.emplace_back(x-3, y+1);
+                        ps.emplace_back(x-1, y+1);
+                        edges.emplace_back(make_pair(c, ps), make_pair(visit[x][y-1], visit[x-2][y+1]));
+                    }
+                    if(x+2 <= 255 && path[x+2][y+1]){
+                        if(visit[x][y-1] == visit[x+2][y+1]) continue;
+                        double c = diagMove + colorCost(bx, by, bx+1, by+1) + colorCost(bx+1, by, bx+2, by+1) - cost[x][y-1] - cost[x+2][y+1];
+                        vector<P2> ps;
+                        ps.emplace_back(x-1, y-1);
+                        ps.emplace_back(x+1, y-1);
+                        ps.emplace_back(x+1, y+1);
+                        ps.emplace_back(x+3, y+1);
+                        edges.emplace_back(make_pair(c, ps), make_pair(visit[x][y-1], visit[x+2][y+1]));
+                    }
                 }
             }
         }
         sort(edges.begin(), edges.end());
         UnionFind uf(group);
-        cerr << "A"<< endl;
         for(auto& e : edges){
             // cerr << e.second.first<< " " << e.second.second << " " << group <<endl;
             int p = uf.getRoot(e.second.first);
@@ -581,11 +580,25 @@ vector<P2> optimizeByMCF(const vector<P2>& current, const Image& image, const P2
             int x2 = (ps[2].x + ps[3].x)/2;
             int y2 = (ps[2].y + ps[3].y)/2;
             if(!path[x1][y1] || !path[x2][y2]) continue;
+            bool hasWarp = false;
+            for(int k=0;k<4;k++) if(warp[ps[k].x][ps[k].y].x != -1) hasWarp = true;
+            if(hasWarp) continue;
             uf.merge(p, q);
             path[x1][y1] = 0;
             path[x2][y2] = 0;
-            path[(ps[0].x+ps[2].x)/2][(ps[0].y+ps[2].y)/2] = 1;
-            path[(ps[1].x+ps[3].x)/2][(ps[1].y+ps[3].y)/2] = 1;
+            if(ps[0].x == ps[2].x || ps[0].y == ps[2].y){
+                path[(ps[0].x+ps[2].x)/2][(ps[0].y+ps[2].y)/2] = 1;
+            } else {
+                warp[ps[0].x][ps[0].y] = ps[2];
+                warp[ps[2].x][ps[2].y] = ps[0];
+            }
+            if(ps[1].x == ps[3].x || ps[1].y == ps[3].y){
+                path[(ps[1].x+ps[3].x)/2][(ps[1].y+ps[3].y)/2] = 1;
+            } else {
+                warp[ps[1].x][ps[1].y] = ps[3];
+                warp[ps[3].x][ps[3].y] = ps[1];
+            }
+
             addCost += e.first.first;
             --group;
         }
@@ -595,43 +608,6 @@ vector<P2> optimizeByMCF(const vector<P2>& current, const Image& image, const P2
     cout << curGroup << " " << mcfResult.second + addCost << endl;
     if(currentCost < mcfResult.second + addCost) return current;
 
-    if(curGroup == 2){
-        vector<vector<int>> visit(257, vector<int>(257, -1));
-        int group = 0;
-        for(int i=0;i<=256;i++){
-            for(int j=0;j<=256;j++){
-                if(path[i][j] == 0) continue;
-                if(visit[i][j] != -1) continue;
-                queue<pair<int, int>> qu;
-                qu.emplace(i, j);
-                visit[i][j] = group;
-                while(!qu.empty()){
-                    auto pr = qu.front(); qu.pop();
-                    const int cx = pr.first;
-                    const int cy = pr.second;
-                    for(int k=0;k<4;k++){
-                        const int nx = cx + dx[k];
-                        if(nx < 0 || 256 < nx) continue;
-                        const int ny = cy + dy[k];
-                        if(ny < 0 || 256 < ny) continue;
-                        if(!path[nx][ny] || visit[nx][ny] != -1) continue;
-                        visit[nx][ny] = group;
-                        qu.emplace(nx, ny);
-                    }
-                }
-                ++group;
-            }
-        }
-        ofstream ofs("visit.txt");
-        for(auto& v : visit){
-            for(auto& t : v){
-                if(t == -1) ofs << ".";
-                else ofs << t;
-            }
-            ofs << endl;
-        }
-    }
-
     if(curGroup == 1){
         vector<vector<int>> order(257, vector<int>(257, -1));
         {
@@ -640,20 +616,27 @@ vector<P2> optimizeByMCF(const vector<P2>& current, const Image& image, const P2
             order[x][y] = 0;
             while(true){
                 bool find = false;
-                for(int d=0;d<8;d++){
-                    int nx = x + dx2[d];
+                for(int d=0;d<4;d++){
+                    int nx = x + dx[d];
                     if(nx < 0 || 256 < nx) continue;
-                    int ny = y + dy2[d];
+                    int ny = y + dy[d];
                     if(ny < 0 || 256 < ny) continue;
                     if(!path[nx][ny] || order[nx][ny] != -1) continue;
                     order[nx][ny] = order[x][y];
-                    x += 2 * dx2[d];
-                    y += 2 * dy2[d];
+                    x += 2 * dx[d];
+                    y += 2 * dy[d];
                     order[x][y] = order[nx][ny] + 1;
                     find = true;
                     break;
                 }
-                if(!find) break;
+                if(!find){
+                    if(warp[x][y].x == -1) break;
+                    const auto& np = warp[x][y];
+                    if(order[np.x][np.y] != -1) break;
+                    order[np.x][np.y] = order[x][y] + 1;
+                    x = np.x;
+                    y = np.y;
+                }
             }
             if(order[x][y] + 1 != current.size() || x/2 - 64 != current.back().x || y/2 - 64 != current.back().y){
                 cerr << "The path is not valid" << endl;
