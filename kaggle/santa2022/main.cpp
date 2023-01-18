@@ -180,6 +180,8 @@ bool validateSolution(const Solution& solution){
         if(!visit[x][y]){
             ++cnt;
             visit[x][y] = 1;
+        } else {
+            cerr << "Invalid move on " << i << endl;
         }
     }
     if(cnt != 257*257){
@@ -376,6 +378,91 @@ vector<pair<P2, P2>> simpleRouteP2(){
     }
     for(int i=-64;i<=0;i++) route.push_back(make_pair(P2(64, i), P2(-64, 0)));
     return route;
+}
+
+vector<P2> outputTSPfileForLKH(const vector<P2>& current, const Image& image, const P2& offset){
+    auto colorCost = [&](int x1, int y1, int x2, int y2){
+        const auto& p1 = image[offset.x + x1][offset.y + y1];
+        const auto& p2 = image[offset.x + x2][offset.y + y2];
+        double res = 0.0;
+        res += abs(p1.r - p2.r);
+        res += abs(p1.g - p2.g);
+        res += abs(p1.b - p2.b);
+        return 3*res;
+    };
+
+    string basename = to_string(offset.x) + "_" + to_string(offset.y) + "_tour";
+    ofstream tsp(basename + ".tsp");
+    ofstream tour(basename + ".init");
+
+    const double diagMove = (sqrt(2.0)-1);
+
+    const int INF = 100000000;
+
+    tsp << "NAME: santa" << endl;
+    tsp << "TYPE: TSP" << endl;
+    tsp << "COMMENT: santa " << offset.x << " " << offset.y << endl;
+    tsp << "DIMENSION: " << current.size()+1 << endl;
+    tsp << "EDGE_WEIGHT_TYPE: EXPLICIT" << endl;
+    tsp << "EDGE_WEIGHT_FORMAT: UPPER_ROW" << endl;
+    tsp << "EDGE_WEIGHT_SECTION" << endl;
+
+    int curBest = 0;
+
+    for(int i=0;i<=current.size();i++){
+        for(int j=i+1;j<=current.size();j++){
+            const auto& p1 = current[i];
+            const auto& p2 = current[j];
+            if(j == current.size()){
+                tsp << ((i == 0 || i+1 == current.size()) ? 0 : INF) << endl;
+            } else {
+                int dx = abs(p1.x - p2.x);
+                int dy = abs(p1.y - p2.y);
+                if(dx >= 2 || dy >= 2){
+                    tsp << INF << " ";
+                    if(j==i+1) cerr << "ERROR" << endl;
+                } else {
+                    double cost = colorCost(p1.x, p1.y, p2.x, p2.y) + (dx == 1 && dy == 1 ? diagMove : 0);
+                    int icost = int(10000*cost);
+                    tsp << icost << " ";
+                    if(j==i+1) curBest += icost;
+                }
+            }
+        }
+    }
+    tsp << "EOF" << endl;
+
+    tour << "NAME : " << basename << ".init" << endl;
+    tour << "TYPE : TOUR" << endl;
+    tour << "DIMENSION: " << current.size()+1 << endl;
+    tour << "TOUR_SECTION" << endl;
+    for(int i=1;i<=current.size()+1;i++) tour << i << endl;
+    tour << -1 << endl;
+    tour << "EOF" << endl;
+    cerr << "CurCost: " << curBest << endl;
+    return current;
+}
+
+vector<P2> optimizeByLKH(const vector<P2>& current, const Image& image, const P2& offset){
+    // apply solution found by LKH
+    string filename = to_string(offset.x) + "_" + to_string(offset.y) + ".tour";
+    ifstream ifs(filename);
+    string s = "";
+    while(s != "TOUR_SECTION"){
+        ifs >> s;
+        if(ifs.fail()) break;
+    }
+    if(ifs.fail()){
+        cerr << "tour file is not found or invalid" << endl;
+        return current;
+    }
+    vector<P2> res(current.size());
+    for(auto& p : res){
+        int idx; ifs >> idx;
+        --idx;
+        p = current[idx];
+    }
+    return res;
 }
 
 vector<P2> optimizeByMCF(const vector<P2>& current, const Image& image, const P2& offset){
@@ -898,7 +985,125 @@ Arms generateArmsFromPoint(const pair<P2, P2>& point){
 
 Solution generateSolution(const vector<pair<P2, P2>>& route){
     Solution res;
-    for(auto& p : route) res.emplace_back(generateArmsFromPoint(p));
+    auto current = generateArmsFromPoint(route.front());
+    res.push_back(current);
+    static int sz[] = {64, 32, 16, 8, 4, 2, 1, 1};
+    for(int i=1;i<route.size();i++){
+        auto tmp = current;
+        current[0] = route[i].first;
+        int dx = route[i].second.x - route[i-1].second.x;
+        int dy = route[i].second.y - route[i-1].second.y;
+        // TODO: It can generate invalid moves. Currently fixed by hand,
+        //       but would like to replace with a better method.
+        while(dx != 0 || dy != 0){
+            for(int j=3;j<8;j++){
+                if(dx < 0 && current[j].x > 0){
+                    --current[j].x;
+                    ++dx;
+                }
+                if(dx > 0 && current[j].x < 0){
+                    ++current[j].x;
+                    --dx;
+                }
+                if(dy < 0 && current[j].y > 0){
+                    --current[j].y;
+                    ++dy;
+                }
+                if(dy > 0 && current[j].y < 0){
+                    ++current[j].y;
+                    --dy;
+                }
+            }
+            if(dx * route[i].second.x > 0){
+                for(int j=1;j<8;j++){
+                    if(dx < 0){
+                        if(current[j].x != -sz[j]){
+                            --current[j].x;
+                            ++dx;
+                        }
+                    }
+                    if(dx > 0){
+                        if(current[j].x != sz[j]){
+                            ++current[j].x;
+                            --dx;
+                        }
+                    }
+                }
+            } else {
+                for(int j=7;j>=1;j--){
+                    if(dx < 0){
+                        if(current[j].x != -sz[j]){
+                            --current[j].x;
+                            ++dx;
+                        }
+                    }
+                    if(dx > 0){
+                        if(current[j].x != sz[j]){
+                            ++current[j].x;
+                            --dx;
+                        }
+                    }
+                }
+            }
+            if(dy * route[i].second.y > 0){
+                for(int j=1;j<8;j++){
+                    if(dy < 0){
+                        if(current[j].y != -sz[j]){
+                            --current[j].y;
+                            ++dy;
+                        }
+                    }
+                    if(dy > 0){
+                        if(current[j].y != sz[j]){
+                            ++current[j].y;
+                            --dy;
+                        }
+                    }
+                }
+            } else {
+                for(int j=7;j>=1;j--){
+                    if(dy < 0){
+                        if(current[j].y != -sz[j]){
+                            --current[j].y;
+                            ++dy;
+                        }
+                    }
+                    if(dy > 0){
+                        if(current[j].y != sz[j]){
+                            ++current[j].y;
+                            --dy;
+                        }
+                    }
+                }
+            }
+        }
+        if(dx != 0 || dy != 0){
+            for(auto& p : tmp) cerr << "(" << p.x << "," << p.y << ")";
+            cerr << endl;
+            for(auto& p : current) cerr << "(" << p.x << "," << p.y << ")";
+            cerr << endl;
+            cerr << "dx = " << route[i].second.x - route[i-1].second.x << endl;
+            cerr << "dy = " << route[i].second.y - route[i-1].second.y << endl;
+            cerr << "ERROR!" << endl;
+        }
+        res.push_back(current);
+    }
+    res.back() = res.front();
+    for(int i=res.size()-1;i>=0;i--){
+        vector<int> plus, minus;
+        for(int j=1;j<8;j++){
+            if(res[i-1][j].y - res[i][j].y > 0) plus.push_back(j);
+            if(res[i-1][j].y - res[i][j].y < 0) minus.push_back(j);
+        }
+        if(plus.empty() && minus.empty()) break;
+        const int m = min(plus.size(), minus.size());
+        for(int j=0;j<m;j++){
+            res[i-1][plus[j]].y = res[i][plus[j]].y + 1;
+            res[i-1][minus[j]].y = res[i][minus[j]].y - 1;
+        }
+        for(int j=m;j<plus.size();j++) res[i-1][plus[j]].y = res[i][plus[j]].y;
+        for(int j=m;j<minus.size();j++) res[i-1][minus[j]].y = res[i][minus[j]].y;
+    }
     return res;
 }
 
@@ -915,7 +1120,8 @@ vector<pair<P2, P2>> generateRoute(const Solution& solution){
     return res;
 }
 
-Solution improveSolution(const Solution& solution, const Image& image){
+template<typename T>
+Solution improveSolution(const Solution& solution, const Image& image, const T& optimizeFunction){
     auto route = generateRoute(solution);
     const int y1[] = {64, 64, -64, -64};
     const int x2[] = {-64, 64, 64, -64};
@@ -938,7 +1144,7 @@ Solution improveSolution(const Solution& solution, const Image& image){
             --idx;
         }
         P2 offset(x2[quad] + 128, y1[quad] + 128);
-        points = optimizeByMCF(points, image, offset);
+        points = optimizeFunction(points, image, offset);
         for(const auto& p : points){
             newRoute.emplace_back(P2(p.x, y1[quad]), P2(x2[quad], p.y));
         }
@@ -983,9 +1189,21 @@ void checkTop(const Image& image){
 }
 
 int main(){
-    auto solution = simpleRoute();
+    // Code to fix the invalid output by hand
+    // {
+    //     const auto image = loadImage("image.csv");
+    //     // solution = improveSolution(solution, image, optimizeByMCF);
+    //     auto solution = loadSolution("output.csv");
+    //     cout << solution.size() << endl;
+    //     cout << validateSolution(solution) << endl;
+    //     printf("%.9lf\n", calcScore(solution, image));
+    //     return 0;
+    // }
     const auto image = loadImage("image.csv");
-    solution = improveSolution(solution, image);
+    // To generate baseline solution (score=75274)
+    // auto solution = improveSolution(simpleRoute(), image, optimizeByMCF);
+    // Improve solution by using LKH
+    auto solution = improveSolution(loadSolution("best75274.csv"), image, optimizeByLKH);
     cout << solution.size() << endl;
     cout << validateSolution(solution) << endl;
     printf("%.9lf\n", calcScore(solution, image));
