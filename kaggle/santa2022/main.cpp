@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <queue>
 #include <random>
 #include <string>
@@ -17,6 +18,7 @@ struct P2 {
     int x, y;
     explicit P2(int x=0, int y=0) : x(x), y(y){}
     bool operator < (const P2& p) const { return x != p.x ? x < p.x : y < p.y; }
+    bool operator == (const P2& p) const { return x == p.x && y == p.y; }
 };
 
 using Arms = vector<P2>;
@@ -180,8 +182,8 @@ bool validateSolution(const Solution& solution){
         if(!visit[x][y]){
             ++cnt;
             visit[x][y] = 1;
-        } else {
-            cerr << "Invalid move on " << i << endl;
+        } else if(i!= n-1 || x != 128 || y != 128){
+            cerr << "Invalid move on " << i << " " << x << " " << y << endl;
         }
     }
     if(cnt != 257*257){
@@ -1107,6 +1109,186 @@ Solution generateSolution(const vector<pair<P2, P2>>& route){
     return res;
 }
 
+Solution generateSolutionByBeamImpl(const vector<pair<P2, P2>>& _route){
+    cerr << "start beam " << endl;
+    cerr << _route.front().first.x << " " << _route.front().first.y << " " << _route.front().second.x << " " << _route.front().second.y << endl;
+    cerr << _route.back().first.x << " " << _route.back().first.y << " " << _route.back().second.x << " " << _route.back().second.y << endl;
+    vector<P2> moves;
+    for(int i=0;i+1<_route.size();i++){
+        const auto& next = _route[i+1];
+        const auto& cur = _route[i];
+        moves.emplace_back(
+            next.first.x + next.second.x - cur.first.x - cur.second.x,
+            next.first.y + next.second.y - cur.first.y - cur.second.y
+        );
+    }
+    auto start = generateArmsFromPoint(_route.front());
+    static int sz[] = {64, 32, 16, 8, 4, 2, 1, 1};
+    auto idx64 = [](const P2& p){
+        return min(511, 2 * (p.x + p.y + 128) - (p.x > p.y ? 1 : 0));
+    };
+    auto idx32 = [](const P2& p){
+        return 0;
+        // return min(255, 2 * (p.x + p.y + 64) - (p.x > p.y ? 1 : 0));
+    };
+    auto armsComp = [](const Arms& a, const Arms& b){
+        auto armsScore = [](const Arms& a){
+            int sa = 1, sb = 1, sc = 1, sd = 1;
+            for(int i=0;i<8;i++){
+                if(abs(a[i].x) == sz[i]){
+                    if(a[i].y != -sz[i]) ++sc;
+                    if(a[i].y != sz[i]) ++sd;
+                }
+                if(abs(a[i].y) == sz[i]){
+                    if(a[i].x != -sz[i]) ++sa;
+                    if(a[i].x != sz[i]) ++sb;
+                }
+            }
+            return sa * sb * sc * sd;
+        };
+        return armsScore(a) < armsScore(b);
+    };
+    using BeamQueue = priority_queue<Arms, vector<Arms>, decltype(armsComp)>;
+    vector<vector<vector<BeamQueue>>> qu(2, vector<vector<BeamQueue>>(512, vector<BeamQueue>(256, BeamQueue(armsComp))));
+    qu[0][idx64(start[0])][idx32(start[1])].push(start);
+    map<Arms, Arms> previous;
+    int quIdx = 0;
+    vector<vector<vector<int>>> mask(256, vector<vector<int>>(9));
+    for(int i=0;i<256;i++){
+        int c = 0;
+        for(int j=0;j<8;j++) if(i&(1<<j)) ++c;
+        for(int j=0;j<256;j++){
+            if((i&j) == i) mask[j][c].push_back(i);
+        }
+    }
+    int seek = 0;
+    for(const auto& move : moves){
+        auto& curQu = qu[quIdx];
+        auto& nextQu = qu[1-quIdx];
+        int rest = 100;
+        auto moveNext = [&](const Arms& arms){
+            int maskX = 0, cntX = 0;
+            int maskY = 0, cntY = 0;
+            if(move.x != 0){
+                cntX = abs(move.x);
+                for(int i=0;i<8;i++){
+                    if(abs(arms[i].y) != sz[i]) continue;
+                    if(move.x > 0 && arms[i].x == sz[i]) continue;
+                    if(move.x < 0 && arms[i].x == -sz[i]) continue;
+                    maskX |= (1 << i);
+                }
+            }
+            if(move.y != 0){
+                cntY = abs(move.y);
+                for(int i=0;i<8;i++){
+                    if(abs(arms[i].x) != sz[i]) continue;
+                    if(move.y > 0 && arms[i].y == sz[i]) continue;
+                    if(move.y < 0 && arms[i].y == -sz[i]) continue;
+                    maskY |= (1 << i);
+                }
+            }
+            for(int mx : mask[maskX][cntX]){
+                for(int my : mask[maskY][cntY]){
+                    auto nextArm = arms;
+                    for(int i=0;i<8;i++){
+                        if(mx&(1<<i)){
+                            if(move.x > 0) ++nextArm[i].x;
+                            else --nextArm[i].x;
+                        }
+                        if(my&(1<<i)){
+                            if(move.y > 0) ++nextArm[i].y;
+                            else --nextArm[i].y;
+                        }
+                    }
+                    if(previous.count(nextArm)) continue;
+                    previous[nextArm] = arms;
+                    nextQu[idx64(nextArm[0])][idx32(nextArm[1])].push(nextArm);
+                }
+            }
+            --rest;
+        };
+        for(int _=0;_<1;_++){
+            for(auto& vv : curQu){
+                for(auto& q : vv){
+                    if(q.empty()) continue;
+                    moveNext(q.top());
+                    q.pop();
+                }
+            }
+        }
+        if(rest > 0){
+            BeamQueue restQu(armsComp);
+            for(auto& vv : curQu){
+                for(auto& q : vv){
+                    while(!q.empty()){
+                        restQu.push(q.top());
+                        q.pop();
+                    }
+                }
+            }
+            while(!restQu.empty() && rest > 0){
+                moveNext(restQu.top());
+                restQu.pop();
+            }
+        } else {
+            for(auto& vv : curQu){
+                for(auto& q : vv){
+                    while(!q.empty()) q.pop();
+                }
+            }
+        }
+        cerr << ++seek << "/" << moves.size() << " " << move.x << " " << move.y << " " << rest << "                   \r";
+        if(rest == 200) break;
+        quIdx = 1 - quIdx;
+    }
+    cerr << "\n";
+    Solution res;
+    auto end = generateArmsFromPoint(_route.back());
+    if(previous.count(end)){
+        res.push_back(end);
+        auto cur = previous[end];
+        while(cur != start){
+            res.push_back(cur);
+            cur = previous[cur];
+        }
+        res.push_back(start);
+        reverse(res.begin(), res.end());
+    } else {
+        cerr << "Could not find valid move" << endl;
+    }
+    return res;
+}
+
+Solution generateSolutionByBeam(const vector<pair<P2, P2>>& _route){
+    Solution res;
+    int idx = 0;
+    while(idx+1 < _route.size()){
+        vector<pair<P2, P2>> route;
+        route.push_back(_route[idx++]);
+        while(true){
+            const auto& p = _route[idx];
+            route.push_back(p);
+            const int x = p.first.x + p.second.x;
+            const int y = p.first.y + p.second.y;
+            if((x == 0 && y == 0) || (abs(x) == 128 && abs(y) == 128)){
+                break;
+            }
+            ++idx;
+        }
+        if(idx+1 == _route.size()){
+            reverse(route.begin(), route.end());
+        }
+        auto part = generateSolutionByBeamImpl(route);
+        if(part.empty()) return Solution();
+        if(idx+1 == _route.size()){
+            reverse(part.begin(), part.end());
+        }
+        for(int i=0;i+1<part.size();i++) res.push_back(part[i]);
+        if(idx+1 == _route.size()) res.push_back(part.back());
+    }
+    return res;
+}
+
 vector<pair<P2, P2>> generateRoute(const Solution& solution){
     vector<pair<P2, P2>> res;
     for(auto& s : solution){
@@ -1190,15 +1372,17 @@ void checkTop(const Image& image){
 
 int main(){
     // Code to fix the invalid output by hand
-    // {
-    //     const auto image = loadImage("image.csv");
-    //     // solution = improveSolution(solution, image, optimizeByMCF);
-    //     auto solution = loadSolution("output.csv");
-    //     cout << solution.size() << endl;
-    //     cout << validateSolution(solution) << endl;
-    //     printf("%.9lf\n", calcScore(solution, image));
-    //     return 0;
-    // }
+    {
+        const auto image = loadImage("image.csv");
+        // solution = improveSolution(solution, image, optimizeByMCF);
+        auto solution = loadSolution("output.csv");
+        solution = generateSolutionByBeam(generateRoute(solution));
+        cout << solution.size() << endl;
+        cout << validateSolution(solution) << endl;
+        printf("%.9lf\n", calcScore(solution, image));
+        printSolution(solution, "output.csv");
+        return 0;
+    }
     const auto image = loadImage("image.csv");
     // To generate baseline solution (score=75274)
     // auto solution = improveSolution(simpleRoute(), image, optimizeByMCF);
