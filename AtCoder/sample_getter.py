@@ -63,7 +63,7 @@ def get_samples(session, contest_name, problem_id, problem_url):
         os.mkdir(contest_name)
     case_id = 0
     for tag in soup.find_all('section'):
-        h3_tag = tag.find('h3', text=re.compile('入力例'))
+        h3_tag = tag.find('h3', string=re.compile('入力例'))
         if h3_tag is None:
             continue
         with open(f'{contest_name}/{problem_id}-sample-{case_id:02d}.txt', 'w') as f:

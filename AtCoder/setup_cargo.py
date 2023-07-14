@@ -4,13 +4,17 @@ rust用のプロジェクトを生成する
 '''
 import argparse
 import os
+import shutil
 import subprocess
-import toml
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Process some integers.')
+    parser.add_argument('contest', type=str, help='name of contest')
     parser.add_argument('problem_id', type=str,
                         help='number of problems')
+
+    current_dir = os.getcwd()
+    script_dir = os.path.dirname(os.path.abspath(__file__))
 
     args = parser.parse_args()
     problems = []
@@ -20,34 +24,28 @@ if __name__ == '__main__':
     except:
         problems.append(args.problem_id)
 
-    for id in problems:
-        if not os.path.exists(f'./{id}'):
-            subprocess.run(f'cargo new {id} --bin', shell=True)
+    try:
+        os.chdir(script_dir)
+        subprocess.run(['cargo', 'init' if os.path.exists(f'./{args.contest}') else 'new', args.contest])
 
-    crates = [
-        'num', 'num-derive', 'ndarray', 'nalgebra', 'libm',
-        'rand', 'rand_distr', 'petgraph', 'indexmap', 'regex',
-        'lazy_static', 'ordered-float', 'ascii', 'permutohedron', 'superslice',
-        'itertools', 'itertools-num', 'maplit',  'either', 'im-rc',
-        'fixedbitset', 'bitset-fixed', 'proconio', 'text_io', 'whiteread',
-        'rustc-hash', 'smallvec'
-    ]
+        crates = [
+            'num', 'num-derive', 'ndarray', 'nalgebra', 'libm',
+            'rand', 'rand_distr', 'petgraph', 'indexmap', 'regex',
+            'lazy_static', 'ordered-float', 'ascii', 'permutohedron', 'superslice',
+            'itertools', 'itertools-num', 'maplit',  'either', 'im-rc',
+            'fixedbitset', 'bitset-fixed', 'proconio', 'text_io', 'whiteread',
+            'rustc-hash', 'smallvec'
+        ]
 
-    for id in problems:
-        t = toml.load(open(f'./{id}/Cargo.toml'))
-        t['package']['name'] = t['package']['name'].lower()
-        for c in crates:
-            t['dependencies'][c] = '*'
-        toml.dump(t, open(f'./{id}/Cargo.toml', 'w'))
+        os.chdir(os.path.join(script_dir, args.contest))
+        subprocess.run(['cargo', 'add'] + crates)
 
-    for id in problems:
-        os.chdir(f'./{id}')
-        subprocess.run('cargo build', shell=True)
-        os.chdir('../')
+        os.makedirs('src/bin', exist_ok=True)
 
-    # for i in range(args.problem_num):
-    #     file_name = f'{args.folder_name}/{chr(ord("A")+i)}.cpp'
-    #     if os.path.isfile(file_name):
-    #         continue
-    #     with open(file_name, 'w') as f:
-    #         pass
+        for id in problems:
+            if not os.path.exists(f'src/bin/{id}.rs'):
+                shutil.copy('src/main.rs', f'src/bin/{id}.rs')
+
+        subprocess.run(['cargo', 'build'])
+    finally:
+        os.chdir(current_dir)
