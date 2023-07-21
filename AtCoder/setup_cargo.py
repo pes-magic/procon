@@ -6,6 +6,7 @@ import argparse
 import os
 import shutil
 import subprocess
+import toml
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Process some integers.')
@@ -20,7 +21,7 @@ if __name__ == '__main__':
     problems = []
     try:
         num = int(args.problem_id)
-        problems.extend(map(chr, range(ord('A'), ord('A')+num)))
+        problems.extend(map(chr, range(ord('a'), ord('a')+num)))
     except:
         problems.append(args.problem_id)
 
@@ -40,12 +41,15 @@ if __name__ == '__main__':
         os.chdir(os.path.join(script_dir, args.contest))
         subprocess.run(['cargo', 'add'] + crates)
 
+        t = toml.load(open('./Cargo.toml'))
+        t['package']['name'] = t['package']['name'].lower()
+        toml.dump(t, open('./Cargo.toml', 'w'))
+
         os.makedirs('src/bin', exist_ok=True)
 
         for id in problems:
             if not os.path.exists(f'src/bin/{id}.rs'):
                 shutil.copy('src/main.rs', f'src/bin/{id}.rs')
-
-        subprocess.run(['cargo', 'build'])
+        os.remove('src/main.rs')
     finally:
         os.chdir(current_dir)
