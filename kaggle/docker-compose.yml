@@ -5,6 +5,7 @@ services:
     volumes:
       - .:/tmp/working
       - ./kaggle.json:/root/.kaggle/kaggle.json
+      - ./input:/kaggle/input
     working_dir: /tmp/working
     ports:
       - 8888:8888
