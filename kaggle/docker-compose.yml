@@ -10,3 +10,10 @@ services:
     ports:
       - 8888:8888
     command: jupyter lab --ip=0.0.0.0 --allow-root --no-browser
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
