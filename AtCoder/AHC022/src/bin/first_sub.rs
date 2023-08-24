@@ -2,31 +2,6 @@ use itertools::Itertools;
 use proconio::{input, source::line::LineSource};
 use std::io::{stdin, stdout, BufReader, Write};
 
-#[derive(Debug)]
-pub struct Xorshift {
-    seed: u64,
-}
-
-impl Xorshift {
-    #[allow(dead_code)]
-    pub fn new() -> Xorshift {
-        Xorshift {
-            seed: 0xf0fb588ca2196dac,
-        }
-    }
-    #[inline]
-    pub fn next(&mut self) -> u64 {
-        self.seed = self.seed ^ (self.seed << 13);
-        self.seed = self.seed ^ (self.seed >> 7);
-        self.seed = self.seed ^ (self.seed << 17);
-        self.seed
-    }
-    #[inline]
-    pub fn rand(&mut self, m: u64) -> u64 {
-        self.next() % m
-    }
-}
-
 fn create_prob_table(s: usize) -> Vec<Vec<f64>> {
     let mut res = vec![vec![0.0; 1001]; 1001];
     let mut prob_one = vec![0.0; 1001];
@@ -63,179 +38,25 @@ fn get_sqrt_idx(s: usize) -> usize {
     29
 }
 
-fn manhattan_points(dist: i32, upper_num: Option<usize>) -> Vec<(i32, i32)> {
+fn gen_p_list(size: usize) -> Vec<usize> {
+    let mut v = 0;
     let mut res = Vec::new();
-    res.push((0, 0));
-    for d in 1..=dist {
-        for x in -d..d {
-            res.push((-x, d - x.abs()));
-        }
-        for x in -d..d {
-            res.push((x, x.abs() - d));
-        }
-    }
-    if let Some(u) = upper_num {
-        if res.len() > u {
-            res.truncate(u);
-        }
+    for i in 0..size {
+        res.push(v);
+        v += (1000 - i) / (size - 1);
     }
     res
 }
 
-fn generate_p_random(
-    warm: &Vec<(usize, usize)>,
-    s: usize,
-    l: usize,
-    points: &Vec<(i32, i32)>,
-    upper: i32,
-    base_num: u64,
-) -> Vec<Vec<i32>> {
-    let mut best = vec![vec![0; l]; l];
-    let mut best_score = (0.0, 0);
-    let mut rand = Xorshift::new();
-    let start = std::time::Instant::now();
-    loop {
-        let mut res = vec![vec![0; l]; l];
-        let mut fixed = vec![vec![false; l]; l];
-        for pos in warm {
-            for &(dx, dy) in points {
-                let x = ((pos.0 + l) as i32 + dx) as usize % l;
-                let y = ((pos.1 + l) as i32 + dy) as usize % l;
-                if fixed[x][y] {
-                    continue;
-                }
-                fixed[x][y] = true;
-                res[x][y] = upper * rand.rand(base_num) as i32;
-            }
-        }
-        let mut min_dif: f64 = 1e15;
-        let mut place_cost: i32 = 0;
-        for i in 0..l {
-            for j in 0..l {
-                place_cost += (res[i][j] - res[i][(j + 1) % l]).pow(2);
-                place_cost += (res[i][j] - res[(i + 1) % l][j]).pow(2);
-            }
-        }
-        for i in 0..warm.len() {
-            for j in i + 1..warm.len() {
-                let mut cnt = 0.0;
-                for &(dx, dy) in points {
-                    let x0 = ((warm[i].0 + l) as i32 + dx) as usize % l;
-                    let y0 = ((warm[i].1 + l) as i32 + dy) as usize % l;
-                    let x1 = ((warm[j].0 + l) as i32 + dx) as usize % l;
-                    let y1 = ((warm[j].1 + l) as i32 + dy) as usize % l;
-                    let mut v = (res[x0][y0] - res[x1][y1]) as f64 / (s * s) as f64;
-                    v = v.min(9.0);
-                    cnt += v * v;
-                }
-                min_dif = min_dif.min(cnt);
-            }
-        }
-        let cur_cost = (min_dif, -place_cost);
-        if cur_cost > best_score {
-            best_score = cur_cost;
-            best = res;
-        }
-        let duration = start.elapsed();
-        let sec = duration.as_secs_f64();
-        if sec >= 3.2 {
-            break;
-        }
+fn output_p_naive(warm: &Vec<(usize, usize)>, p_vals: &Vec<usize>, l: usize) {
+    let mut res = vec![vec![0; l]; l];
+    for i in 0..warm.len() {
+        res[warm[i].0][warm[i].1] = p_vals[i];
     }
-    eprintln!("best_score: {} {}", best_score.0, -best_score.1);
-    let mut fixed = vec![vec![false; l]; l];
-    for pos in warm {
-        for &(dx, dy) in points {
-            let x = ((pos.0 + l) as i32 + dx) as usize % l;
-            let y = ((pos.1 + l) as i32 + dy) as usize % l;
-            fixed[x][y] = true;
-        }
+    for v in &res {
+        println!("{}", v.iter().join(" "));
     }
-    for _ in 0..100 {
-        let mut end = true;
-        for x in 0..l {
-            for y in 0..l {
-                if fixed[x][y] {
-                    continue;
-                }
-                let cur = best[x][y];
-                let next = (best[x][(y + 1) % l]
-                    + best[(x + 1) % l][y]
-                    + best[x][(y + l - 1) % l]
-                    + best[(x + l - 1) % l][y]
-                    + 2)
-                    / 4;
-                if cur == next {
-                    continue;
-                }
-                best[x][y] = next;
-                end = false;
-            }
-        }
-        if end {
-            break;
-        }
-    }
-    best
-}
-
-fn calc_answer(cost: &Vec<Vec<f64>>) -> Vec<usize> {
-    let n = cost.len();
-    let mut used_src = vec![false; n - 1];
-    let mut used_dst = vec![false; n];
-    let mut res = vec![0; n];
-    let mut orders = vec![Vec::new(); n - 1];
-    for i in 0..n - 1 {
-        for j in 0..n {
-            orders[i].push((j, cost[i][j]));
-        }
-        orders[i].sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
-    }
-    let mut seek = vec![0; n - 1];
-    let mut fixed_num = 0;
-    while fixed_num != n - 1 {
-        let mut cand = vec![Vec::new(); n];
-        for i in 0..n - 1 {
-            if used_src[i] {
-                continue;
-            }
-            while used_dst[orders[i][seek[i]].0] {
-                seek[i] += 1;
-            }
-            cand[orders[i][seek[i]].0].push(i);
-        }
-        for j in 0..n {
-            if cand[j].is_empty() {
-                continue;
-            }
-            if cand[j].len() == 1 {
-                res[cand[j][0]] = j;
-                used_src[cand[j][0]] = true;
-                used_dst[j] = true;
-                fixed_num += 1;
-            } else {
-                let mut val = 1e15;
-                let mut idx = 0;
-                for k in 0..cand[j].len() {
-                    if cost[cand[j][k]][j] < val {
-                        val = cost[cand[j][k]][j];
-                        idx = k;
-                    }
-                }
-                res[cand[j][idx]] = j;
-                used_src[cand[j][idx]] = true;
-                used_dst[j] = true;
-                fixed_num += 1;
-            }
-        }
-    }
-    for i in 0..n {
-        if used_dst[i] {
-            continue;
-        }
-        res[n - 1] = i;
-    }
-    res
+    stdout().flush().unwrap();
 }
 
 fn main() {
@@ -248,179 +69,34 @@ fn main() {
     }
     let s_idx = get_sqrt_idx(s);
     let prob = create_prob_table(s_idx);
-    if 4 <= s_idx && s_idx <= 22 {
-        let mut res = vec![0; n];
-        let upper = (6 * s).min(1000);
-        for i in 0..l {
-            for j in 0..l {
-                print!("{}", if i == 0 && j == 0 { upper } else { 0 });
-                if j == l - 1 {
-                    println!("")
-                } else {
-                    print!(" ");
-                }
-            }
-        }
-        stdout().flush().unwrap();
-        let mut query = 0;
-        let mut decided = vec![false; n];
-        for i in 0..n - 1 {
-            let mut order = Vec::new();
-            for j in 0..n {
-                if decided[j] {
-                    continue;
-                }
-                let x = if warm[j].0 < l - warm[j].0 {
-                    -(warm[j].0 as i32)
-                } else {
-                    (l - warm[j].0) as i32
-                };
-                let y = if warm[j].1 < l - warm[j].1 {
-                    -(warm[j].1 as i32)
-                } else {
-                    (l - warm[j].1) as i32
-                };
-                order.push((x.abs() + y.abs(), j));
-            }
-            order.sort();
-            for jj in 0..order.len() {
-                let j = order[jj].1;
-                if query == 10000 {
-                    break;
-                }
-                if decided[j] {
-                    continue;
-                }
-                let mut prob0 = 0.5;
-                let mut prob1 = 0.5;
-                let x = if warm[j].0 < l - warm[j].0 {
-                    -(warm[j].0 as i32)
-                } else {
-                    (l - warm[j].0) as i32
-                };
-                let y = if warm[j].1 < l - warm[j].1 {
-                    -(warm[j].1 as i32)
-                } else {
-                    (l - warm[j].1) as i32
-                };
-                let mut ok = false;
-                let rep = 10;
-                for k in 0..rep {
-                    if query == 10000 {
-                        break;
-                    }
-                    println!("{} {} {}", i, x, y);
-                    query += 1;
-                    stdout().flush().unwrap();
-                    input! {
-                        from &mut source, t: usize
-                    }
-                    let rp0 = prob[s_idx][t].exp();
-                    let rp1 = prob[s_idx][if upper > t { upper - t } else { t - upper }].exp();
-                    prob0 *= rp0 / (rp0 + rp1);
-                    prob1 *= rp1 / (rp0 + rp1);
-                    let ps = prob0 + prob1;
-                    prob0 /= ps;
-                    prob1 /= ps;
-                    if prob0 > 0.999 {
-                        break;
-                    } else if prob1 > 0.999 {
-                        ok = true;
-                        decided[j] = true;
-                        res[i] = j;
-                        break;
-                    } else if k == rep - 1 && prob0 < prob1 {
-                        ok = true;
-                        decided[j] = true;
-                        res[i] = j;
-                        break;
-                    }
-                }
-                if ok {
-                    break;
-                }
-            }
-        }
-        for j in 0..n {
-            if decided[j] {
-                continue;
-            }
-            res[n - 1] = j;
-        }
-        println!("-1 -1 -1");
-        for c in res {
-            println!("{}", c);
-        }
-        return;
-    }
-    let args: Vec<String> = std::env::args().collect();
-    let dist_param = [
-        1, 2, 2, 2, 3, 3, 2, 2, 2, 2, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 4, 7, 7, 5, 4, 7,
-    ];
-    let search_param = [
-        4, 6, 10, 13, 22, 24, 35, 52, 71, 65, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100,
-        100, 100, 100, 100, 98, 100, 100, 94, 95, 100,
-    ];
-    let base_val_param = [
-        4, 5, 12, 64, 38, 50, 66, 73, 81, 100, 121, 144, 169, 196, 225, 256, 289, 324, 361, 400,
-        441, 484, 529, 576, 703, 676, 729, 858, 945, 1000,
-    ];
-    let base_num_param = [
-        8, 11, 6, 2, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-    ];
-
-    let m_dist = if args.len() >= 2 {
-        args[1].parse::<i32>().ok().unwrap()
-    } else {
-        dist_param[s_idx]
-    };
-    let m_search = if args.len() >= 3 {
-        args[2].parse::<usize>().ok().unwrap()
-    } else {
-        search_param[s_idx]
-    };
-    let m_base_val = if args.len() >= 4 {
-        args[3].parse::<i32>().ok().unwrap()
-    } else {
-        base_val_param[s_idx]
-    };
-    let m_base_num = if args.len() >= 5 {
-        args[4].parse::<u64>().ok().unwrap()
-    } else {
-        base_num_param[s_idx]
-    };
-
-    let points = manhattan_points(m_dist, Some(m_search));
-    let p_field = generate_p_random(&warm, s_idx + 1, l, &points, m_base_val, m_base_num);
-    for v in &p_field {
-        println!("{}", v.iter().join(" "));
-    }
+    let p_vals = gen_p_list(n);
+    output_p_naive(&warm, &p_vals, l);
 
     let mut cost = vec![vec![0.0; n]; n];
-    for i in 0..n - 1 {
-        let mut search_cnt = 0;
-        while search_cnt < m_search {
-            for &(dx, dy) in &points {
-                println!("{} {} {}", i, dx, dy);
-                stdout().flush().unwrap();
-                input! {
-                    from &mut source, t: usize
-                }
-                for j in 0..n {
-                    let x = ((warm[j].0 + l) as i32 + dx) as usize % l;
-                    let y = ((warm[j].1 + l) as i32 + dy) as usize % l;
-                    cost[i][j] -= prob[p_field[x][y] as usize][t];
-                }
-                search_cnt += 1;
-                if search_cnt >= m_search {
-                    break;
-                }
+    let try_per_hole = 10000 / n;
+    for i in 0..n {
+        for _ in 0..try_per_hole {
+            println!("{} 0 0", i);
+            stdout().flush().unwrap();
+            input! {
+                from &mut source, t: usize
+            }
+            for j in 0..n {
+                cost[i][j] -= prob[p_vals[j]][t];
             }
         }
     }
     println!("-1 -1 -1");
-    for v in calc_answer(&cost) {
-        println!("{}", v);
+    for i in 0..n {
+        let mut val = 1e15;
+        let mut idx = 0;
+        for j in 0..n {
+            if cost[i][j] < val {
+                val = cost[i][j];
+                idx = j;
+            }
+        }
+        println!("{}", idx);
     }
 }
 
