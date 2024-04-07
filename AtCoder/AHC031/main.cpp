@@ -6,6 +6,7 @@
 #include <random>
 #include <cassert>
 #include <tuple>
+#include <queue>
 
 using namespace std;
 
@@ -48,84 +49,6 @@ private:
     result_type z;
     result_type w;
 };
-
-//------------------------------------------------------------------------------
-long long calc_cost_one_day(const int W, const vector<int>& a, const vector<int>& v_line, const vector<int>& h_line, long long order){
-    vector<int> area;
-    int v_idx = 0, h_idx = 0;
-    int v_prev = 0, h_prev = 0;
-    for(int i=0;i<v_line.size()+h_line.size();i++){
-        if(order&(1LL<<i)){
-            area.push_back((h_line[h_idx] - h_prev) * (W - v_prev));
-            h_prev = h_line[h_idx];
-            h_idx++;
-        } else {
-            area.push_back((v_line[v_idx] - v_prev) * (W - h_prev));
-            v_prev = v_line[v_idx];
-            v_idx++;
-        }
-    }
-    area.push_back((W - v_prev) * (W - h_prev));
-    sort(area.begin(), area.end());
-    long long cost = 0;
-    for(int i=0;i<a.size();i++){
-        cost += 100 * max(0, a[i] - area[i]);
-    }
-    return cost;
-}
-
-//------------------------------------------------------------------------------
-long long calc_cost(const int W, const vector<vector<int>>& a, const vector<int>& v_line, const vector<int>& h_line, long long order){
-    vector<int> area;
-    int v_idx = 0, h_idx = 0;
-    int v_prev = 0, h_prev = 0;
-    for(int i=0;i<v_line.size()+h_line.size();i++){
-        if(order&(1LL<<i)){
-            area.push_back((h_line[h_idx] - h_prev) * (W - v_prev));
-            h_prev = h_line[h_idx];
-            h_idx++;
-        } else {
-            area.push_back((v_line[v_idx] - v_prev) * (W - h_prev));
-            v_prev = v_line[v_idx];
-            v_idx++;
-        }
-    }
-    area.push_back((W - v_prev) * (W - h_prev));
-    sort(area.begin(), area.end());
-    long long cost = 0;
-    for(auto& v : a){
-        for(int i=0;i<v.size();i++){
-            cost += 100 * max(0, v[i] - area[i]);
-        }
-    }
-    return cost;
-}
-
-//------------------------------------------------------------------------------
-void print_rectangle(const int W, const vector<int>& v_line, const vector<int>& h_line, long long order){
-    int v_idx = 0, h_idx = 0;
-    int v_prev = 0, h_prev = 0;
-    vector<pair<int, tuple<int, int, int, int>>> rect;
-    for(int i=0;i<v_line.size()+h_line.size();i++){
-        if(order&(1LL<<i)){
-            int area = (h_line[h_idx] - h_prev) * (W - v_prev);
-            rect.emplace_back(area, make_tuple(v_prev, h_prev, W, h_line[h_idx]));
-            h_prev = h_line[h_idx];
-            h_idx++;
-        } else {
-            int area = (v_line[v_idx] - v_prev) * (W - h_prev);
-            rect.emplace_back(area, make_tuple(v_prev, h_prev, v_line[v_idx], W));
-            v_prev = v_line[v_idx];
-            v_idx++;
-        }
-    }
-    rect.emplace_back((W - v_prev) * (W - h_prev), make_tuple(v_prev, h_prev, W, W));
-    sort(rect.begin(), rect.end());
-    for(auto& [area, r] : rect){
-        auto [v_prev, h_prev, v, h] = r;
-        cout << v_prev << " " << h_prev << " " << v << " " << h << endl;
-    }
-}
 
 //------------------------------------------------------------------------------
 int bit_count(long long t){
@@ -183,10 +106,207 @@ pair<vector<vector<int>>, vector<int>> merge_days(const vector<vector<int>>& a, 
 }
 
 //------------------------------------------------------------------------------
+pair<long long, vector<vector<vector<int>>>> calc_partition_cost(
+    int W,
+    const vector<vector<int>>& a,
+    const vector<int>& width,
+    const vector<vector<vector<int>>>& cur_assign)
+{
+    long long new_cost = 0;
+    // cerr << "called" << endl;
+    // cerr << "Width: " << width.size() << endl;
+    vector<vector<vector<int>>> new_assign(a.size(), vector<vector<int>>(width.size(), vector<int>()));
+    for(int i=0;i<a.size();i++){
+        priority_queue<pair<int, int>> qu;
+        vector<int> used(cur_assign[i].size(), 0);
+        vector<int> cur_height(width.size(), 0);
+        vector<int> cur_assign_idx(a[i].size(), -1);
+        for(int j=0;j<cur_assign[i].size();j++){
+            for(int k=0;k<cur_assign[i][j].size();k++){
+                cur_assign_idx[cur_assign[i][j][k]] = j;
+            }
+            if(!cur_assign[i][j].empty()){
+                qu.push(make_pair(a[i][cur_assign[i][j][0]], cur_assign[i][j][0]));
+                used[j] += 1;
+            }
+            for(int k=1;k<cur_assign[i][j].size();k++){
+                if(width.size() <= j || width[j] == 0){
+                    qu.push(make_pair(a[i][cur_assign[i][j][k]], cur_assign[i][j][k]));
+                    used[j] += 1;
+                } else {
+                    cur_height[j] += (a[i][cur_assign[i][j][k]] + width[j] - 1) / width[j];
+                }
+            }
+        }
+        // for(auto& u : used) cerr << u << " "; cerr << endl;
+        // cerr << "qu" << endl;
+        while(!qu.empty()){
+            auto [value, idx] = qu.top(); qu.pop();
+            // cerr << "pop:" << value << " " << idx << endl;
+            const int assign_idx = cur_assign_idx[idx];
+            // cerr << "assign_idx = " << assign_idx << ", used = " << used[assign_idx] << ", cur_assign_size = " << cur_assign[i][assign_idx].size() << endl;
+            int min_idx = -1;
+            int min_value = 1000000000;
+            for(int j=0;j<width.size();j++){
+                if(width[j] == 0) continue;
+                if(cur_height[j] + (a[i][idx] + width[j] - 1) / width[j] < min_value){
+                    min_value = cur_height[j] + (a[i][idx] + width[j] - 1) / width[j];
+                    min_idx = j;
+                }
+            }
+            // cerr << "min_idx = " << min_idx << endl;
+            // cerr << "idx = " << idx << endl;
+            // cerr << "new_assign.size() = " << new_assign.size() << endl;
+            // cerr << i << endl;
+            // cerr << "new_assign[i].size() = " << new_assign[i].size() << endl;
+            // cerr << new_assign[i][min_idx].size() << endl;
+            new_assign[i][min_idx].push_back(idx);
+            // cerr << "cur_height.size() = " << cur_height.size() << endl;
+            // cerr << cur_height[min_idx] << endl;
+            // cerr << a[i][idx] << endl;
+            // cerr << width[min_idx] << endl;
+            cur_height[min_idx] += (a[i][idx] + width[min_idx] - 1) / width[min_idx];
+            if(used[assign_idx] < cur_assign[i][assign_idx].size()){
+                int target_idx = cur_assign[i][assign_idx][used[assign_idx]];
+                qu.emplace(a[i][target_idx], target_idx);
+                cur_height[assign_idx] -= (a[i][target_idx] + width[assign_idx] - 1) / width[assign_idx];
+                used[assign_idx] += 1;
+            }
+
+            // cerr << "pushed" << endl;
+        }
+        // cerr << "end " << endl;
+        for(int j=0;j<width.size();j++){
+            new_cost += 100 * max(0, cur_height[j] - W);
+            if(i != 0){
+                new_cost += width[j] * (max(1, (int)new_assign[i][j].size()) - 1);
+            }
+        }
+    }
+    // cerr << "New Assign" << endl;
+    bool ok = true;
+    for(int i=0;i<new_assign.size();i++){
+        int num = 0;
+        for(int j=0;j<new_assign[i].size();j++){
+            // cerr << "Day " << i << " Width " << width[j] << " : ";
+            num += new_assign[i][j].size();
+            for(int k=0;k<new_assign[i][j].size();k++){
+                if(k != 0 && new_assign[i][j][k] > new_assign[i][j][k-1]){
+                    ok = false;
+                }
+                // cerr << new_assign[i][j][k] << " ";
+            }
+            // cerr << endl;
+        }
+        if(num != a[i].size()){
+            ok = false;
+        }
+    }
+    if(!ok){
+        cerr << "Error" << endl;
+        exit(1);
+    }
+    // cerr << "cost = " << new_cost << endl;
+    return make_pair(new_cost, new_assign);
+
+}
+
+//------------------------------------------------------------------------------
+pair<vector<int>, vector<vector<vector<int>>>> gen_partition(int W, const vector<vector<int>>& a, const Timer& timer){
+    vector<int> width(1, W);
+    width.reserve(W);
+    long long current_cost = 0;
+    vector<vector<vector<int>>> assign(a.size(), vector<vector<int>>(1, vector<int>(a[0].size(), 0)));
+    for(int i=0;i<a.size();i++){
+        int sum = 0;
+        for(int j=0;j<a[i].size();j++){
+            assign[i][0][j] = a[i].size()-1-j;
+            sum += (a[i][a[i].size()-1-j] + W - 1) / W;
+        }
+        if(i != 0) current_cost += W * (a[i].size() - 1);
+        current_cost += 100 * max(0, sum - W);
+    }
+    for(int i=0;i<a.size();i++){
+        cerr << "Day " << i << endl;
+        for(int j=0;j<assign[i][0].size();j++){
+            cerr << assign[i][0][j] << " ";
+        }
+        cerr << endl;
+    }
+    XorShift rnd(1234567891);
+    while(timer.msec() < 1500){
+        int type = rnd() % 16;
+        // cerr << type << " " << timer.msec() << endl;
+        if(type == 0){
+            if(width.size() == W) continue;
+            int idx = rnd() % width.size();
+            while(width[idx] <= 1){
+                idx = rnd() % width.size();
+            }
+            int new_width = rnd() % (width[idx] - 1) + 1;
+            width.push_back(width[idx] - new_width);
+            width[idx] = new_width;
+            auto [new_cost, new_assign] = calc_partition_cost(W, a, width, assign);
+            if(new_cost < current_cost){
+                current_cost = new_cost;
+                assign = new_assign;
+            } else {
+                width[idx] += width.back();
+                width.pop_back();
+            }
+        } else if(type == 1){
+            if(width.size() == 1) continue;
+            int idx0 = rnd() % width.size();
+            int idx1 = rnd() % width.size();
+            while(idx0 == idx1){
+                idx1 = rnd() % width.size();
+            }
+            int cur_width = width[idx0];
+            width[idx0] += width[idx1];
+            width[idx1] = 0;
+            auto [new_cost, new_assign] = calc_partition_cost(W, a, width, assign);
+            if(new_cost < current_cost){
+                current_cost = new_cost;
+                assign = new_assign;
+                for(auto& asg : assign){
+                    swap(asg[idx1], asg.back());
+                    asg.pop_back();
+                }
+                width[idx1] = width.back();
+                width.pop_back();
+            } else {
+                width[idx1] = width[idx0] - cur_width;
+                width[idx0] = cur_width;
+            }
+        } else {
+            if(width.size() == 1) continue;
+            int idx0 = rnd() % width.size();
+            while(width[idx0] == 1){
+                idx0 = rnd() % width.size();
+            }
+            int idx1 = rnd() % width.size();
+            while(idx0 == idx1){
+                idx1 = rnd() % width.size();
+            }
+            int chg = rnd() % (width[idx0] - 1) + 1;
+            width[idx0] -= chg;
+            width[idx1] += chg;
+            auto [new_cost, new_assign] = calc_partition_cost(W, a, width, assign);
+            if(new_cost < current_cost){
+                current_cost = new_cost;
+                assign = new_assign;
+            } else {
+                width[idx1] -= chg;
+                width[idx0] += chg;
+            }
+        }
+    }
+    return make_pair(width, assign);
+}
+
+//------------------------------------------------------------------------------
 int main(){
     Timer timer;
-    const double initial_temp = 5000.0;
-    const double final_temp = 0.0;
     int W, D, N;
     cin >> W >> D >> N;
     vector<vector<int>> a(D, vector<int>(N));
@@ -197,148 +317,52 @@ int main(){
     }
     const double time_limit = 2950;
     XorShift rnd(1234567891);
-    vector<int> v_line;
-    vector<int> h_line;
-    vector<int> v_use(W+1, 0);
-    vector<int> h_use(W+1, 0);
-    long long order = 0LL;
-    {
-        v_use[0] = 1;
-        h_use[0] = 1;
-        v_use[W] = 1;
-        h_use[W] = 1;
-        for(int i=0;i<N-1;i++){
-            if(i % 2){
-                v_line.push_back(rnd() % (W-1) + 1);
-                while(v_use[v_line.back()]){
-                    v_line.back() = rnd() % (W-1) + 1;
-                }
-                v_use[v_line.back()] = 1;
-            }else{
-                h_line.push_back(rnd() % (W-1) + 1);
-                while(h_use[h_line.back()]){
-                    h_line.back() = rnd() % (W-1) + 1;
-                }
-                h_use[h_line.back()] = 1;
-            }
-        }
-        sort(v_line.begin(), v_line.end());
-        sort(h_line.begin(), h_line.end());
-        for(int i=0;i<h_line.size();i++){
-            while(true) {
-                int t = rnd() % (N-2) + 1;
-                if(order&(1LL << t)) continue;
-                order |= 1LL << t;
-                break;
-            }
-        }
-    }
     auto r = merge_days(a, W);
-    for(int day=0;day<r.first.size();day++){
-        long long cur_score = calc_cost_one_day(W, r.first[day], v_line, h_line, order);
-        long long best_score = cur_score;
-        vector<int> best_v_line = v_line;
-        vector<int> best_h_line = h_line;
-        long long best_order = order;
-        cerr << "Initial score: " << cur_score << endl;
-        const double time_start = timer.msec();
-        const double time_end = time_limit / r.first.size() * (day + 1);
-        while(best_score > 0 && timer.msec() < time_end){
-            int chg_v_idx = -1;
-            int chg_h_idx = -1;
-            int chg_v_value = -1;
-            int chg_h_value = -1;
-            int chg_order_idx = -1;
-            if(rnd() % 4){
-                if(rnd()% 2){
-                    while(true){
-                        int sgn = rnd() % 2 ? 1 : -1;
-                        int idx = rnd() % v_line.size();
-                        if(!v_use[v_line[idx] + sgn]){
-                            chg_v_idx = idx;
-                            chg_v_value = sgn;
-                            v_line[idx] += sgn;
-                            break;
-                        }
-                    }
-                } else {
-                    while(true){
-                        int sgn = rnd() % 2 ? 1 : -1;
-                        int idx = rnd() % h_line.size();
-                        if(!h_use[h_line[idx] + sgn]){
-                            chg_h_idx = idx;
-                            chg_h_value = sgn;
-                            h_line[idx] += sgn;
-                            break;
-                        }
-                    }
-                }
-            } else {
-                while(true){
-                    int idx = rnd() % (N-3) + 1;
-                    if((order >> idx)%4%3 != 0){
-                        chg_order_idx = idx;
-                        order ^= 3LL << idx;
-                        break;
-                    }
+    cerr << r.first.size() << endl;
+    auto [width, assign] = gen_partition(W, r.first, timer);
+    for (auto& w : width) {
+        cerr << w << " ";
+    }
+    cerr << endl;
+    for(int i=0;i<r.first.size();i++){
+        vector<vector<int>> heights(width.size());
+        for(auto& asg : assign[i]) cerr << asg.size() << " ";
+        cerr << endl;
+        for(int j=0;j<width.size();j++){
+            int sum = 0;
+            for(int k=0;k<assign[i][j].size();k++){
+                heights[j].push_back((r.first[i][assign[i][j][k]] + width[j] - 1) / width[j]);
+                sum += heights[j].back();
+            }
+            if(heights[j].empty()) continue;
+            while(sum > W){
+                int idx = rnd() % heights[j].size();
+                if(heights[j][idx] > 1){
+                    heights[j][idx] -= 1;
+                    sum -= 1;
                 }
             }
-            long long new_score = calc_cost_one_day(W, r.first[day], v_line, h_line, order);
-            const double ratio = (timer.msec() - time_start) / (time_end - time_start);
-            const double rev_ratio = 1 - ratio;
-            const double temperature = initial_temp + (final_temp - initial_temp) * (1 - rev_ratio * rev_ratio * rev_ratio);
-            double delta = new_score - cur_score;
-            // スコアがtemperature悪化するときの採用確率は約36.8%
-            if(delta < 0 || bernoulli_distribution(exp(-delta/temperature))(rnd)){
-                if(chg_v_idx != -1){
-                    v_use[v_line[chg_v_idx] - chg_v_value] = 0;
-                    v_use[v_line[chg_v_idx]] = 1;
-                }
-                if(chg_h_idx != -1){
-                    h_use[h_line[chg_h_idx] - chg_h_value] = 0;
-                    h_use[h_line[chg_h_idx]] = 1;
-                }
-                cur_score = new_score;
-                if(best_score > cur_score){
-                    best_score = cur_score;
-                    best_v_line = v_line;
-                    best_h_line = h_line;
-                    best_order = order;
-                }
-            } else {
-                if(chg_v_idx != -1){
-                    v_line[chg_v_idx] -= chg_v_value;
-                }
-                if(chg_h_idx != -1){
-                    h_line[chg_h_idx] -= chg_h_value;
-                }
-                if(chg_order_idx != -1){
-                    order ^= 3LL << chg_order_idx;
-                }
+            if(sum < W) heights[j].back() += W - sum;
+        }
+        vector<pair<int, tuple<int, int, int, int>>> res;
+        int prev_w = 0;
+        for(int k=0;k<width.size();k++){
+            int new_W = prev_w + width[k];
+            int prev_h = 0;
+            for(int l=0;l<heights[k].size();l++){
+                int new_h = prev_h + heights[k][l];
+                res.emplace_back((new_h-prev_h)*(new_W-prev_w), make_tuple(prev_w, prev_h, new_W, new_h));
+                // cout << prev_w << " " << prev_h << " " << new_W << " " << new_h << endl;
+                prev_h = new_h;
             }
+            prev_w = new_W;
         }
-        int sum = 0;
-        for(auto& t : r.first[day]){
-            sum += t;
-        }
-        cerr << sum << "/" << W*W << endl;
-        cerr << "Best score: " << best_score << endl;
-        for(int _=0;_<r.second[day];_++){
-            print_rectangle(W, best_v_line, best_h_line, best_order);
-        }
-        v_line = best_v_line;
-        h_line = best_h_line;
-        order = best_order;
-        for(int i=1;i<W;i++){
-            v_use[i] = 0;
-            h_use[i] = 0;
-        }
-        for(auto& t : v_line){
-            v_use[t] = 1;
-        }
-        for(auto& t : h_line){
-            h_use[t] = 1;
+        sort(res.begin(), res.end());
+        for(int j=0;j<r.second[i];j++){
+            for(int k=0;k<res.size();k++){
+                auto [x1, y1, x2, y2] = res[k].second;
+                cout << x1 << " " << y1 << " " << x2 << " " << y2 << endl;
+            }
         }
     }
-    cerr << "Merged size: " << r.first.size() << " " << D << endl;
 }
