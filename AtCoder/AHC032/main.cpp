@@ -11,6 +11,7 @@
 using namespace std;
 
 const int MOD = 998244353;
+const int dd[] = {0, 1, 2, 9, 10, 11, 18, 19, 20};
 
 //------------------------------------------------------------------------------
 class Timer {
@@ -79,309 +80,128 @@ ostream& operator << (ostream& os, const Action& a){
 }
 
 //------------------------------------------------------------------------------
+void make_stump(
+    vector<vector<pair<vector<int>, vector<int>>>>& merged_stump,
+    vector<int>& cur_set,
+    vector<int>& cur_stump,
+    int idx,
+    const vector<vector<int>>& stump)
+{
+    if(cur_set.size() == 8) return;
+    for(int i=idx;i<stump.size();i++){
+        for(int j=0;j<9;j++){
+            cur_stump[j] += stump[i][j];
+            cur_stump[j] %= MOD;
+        }
+        cur_set.push_back(i);
+        merged_stump[cur_set.size() - 1].emplace_back(cur_set, cur_stump);
+        make_stump(merged_stump, cur_set, cur_stump, i, stump);
+        cur_set.pop_back();
+        for(int j=0;j<9;j++){
+            cur_stump[j] += MOD - stump[i][j];
+            cur_stump[j] %= MOD;
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
 int main(){
     Timer timer;
     int N, M, K;
     cin >> N >> M >> K;
-    vector<vector<int>> a(N, vector<int>(N));
-    auto initial_a = a;
-    vector<vector<vector<int>>> stump(M, vector<vector<int>>(3, vector<int>(3)));
-    for(int i = 0; i < N; ++i){
-        for(int j = 0; j < N; ++j){
-            cin >> a[i][j];
-        }
+    vector<int> a(N * N);
+    vector<vector<int>> stump(M, vector<int>(9));
+    for(auto& v : a) cin >> v;
+    for(auto& s : stump) for(auto& v : s) cin >> v;
+    vector<int> cur_set;
+    vector<int> cur_stump(9, 0);
+    vector<vector<pair<vector<int>, vector<int>>>> merged_stump(9);
+    make_stump(merged_stump, cur_set, cur_stump, 0, stump);
+    vector<vector<long long>> cost(50, vector<long long>(N*N+1, 0));
+    vector<vector<int>> action(50, vector<int>(N*N+1, 0));
+    vector<vector<vector<int>>> board(50, vector<vector<int>>(N*N+1, vector<int>(N*N)));
+    for(int i=0;i<=81;i++){
+        board[0][i] = a;
+        if(i != 0) cost[0][i] = -(1LL << 50);
     }
-    for(int i = 0; i < M; ++i){
-        for(int j = 0; j < 3; ++j){
-            for(int k = 0; k < 3; ++k){
-                cin >> stump[i][j][k];
+    for(int i=0;i<7;i++){
+        for(int j=0;j<7;j++){
+            int pos = 9*i+j;
+            int base = 7*i+j;
+            int max_inc = 2;
+            if(i==6 && j==6) max_inc = 8;
+            if(i==6 || j==6) max_inc = 4;
+            for(int k=0;k<=N*N;k++){
+                board[base+1][k] = board[base][k];
+                cost[base+1][k] = cost[base][k];
+                action[base+1][k] = -1;
             }
-        }
-    }
-    vector<Action> actions;
-    for(int _=0;_<K;_++){
-        long long best_score = 0;
-        Action best_action = Action(0, 0, 0);
-        for(int p=0;p<N-2;p++){
-            for(int q=0;q<N-2;q++){
-                long long base_score = 0;
-                for(int i=0;i<3;i++){
-                    for(int j=0;j<3;j++){
-                        base_score -= a[p+i][q+j];
-                    }
-                }
-                for(int m=0;m<M;m++){
-                    long long score = base_score;
-                    for(int i=0;i<3;i++){
-                        for(int j=0;j<3;j++){
-                            a[p+i][q+j] += stump[m][i][j];
-                            a[p+i][q+j] %= MOD;
-                            score += a[p+i][q+j];
-                            a[p+i][q+j] += MOD - stump[m][i][j];
-                            a[p+i][q+j] %= MOD;
+            for(int k=0;k<=N*N;k++){
+                if(cost[base][k] < 0) continue;
+                auto cur_board = board[base][k];
+                for(int inc=0;inc<max_inc;inc++){
+                    if(k+inc+1 > N*N) break;
+                    int idx = 0;
+                    for(auto& state : merged_stump[inc]){
+                        auto& stump = state.second;
+                        long long score = 0;
+                        for(int l=0;l<9;l++){
+                            cur_board[pos+dd[l]] += stump[l];
+                            cur_board[pos+dd[l]] %= MOD;
                         }
-                    }
-                    if(score > best_score){
-                        best_score = score;
-                        best_action = Action(m, p, q);
+                        if(i == 6 && j == 6){
+                            for(int l=0;l<9;l++){
+                                score += cur_board[pos+dd[l]];
+                            }
+                        } else if(i == 6){
+                            for(int l=0;l<9;l+=3){
+                                score += cur_board[pos+dd[l]];
+                            }
+                        } else if(j == 6){
+                            for(int l=0;l<3;l++){
+                                score += cur_board[pos+dd[l]];
+                            }
+                        } else {
+                            score += cur_board[pos+dd[0]];
+                        }
+                        if(cost[base][k] + score > cost[base+1][k+inc+1]){
+                            cost[base+1][k+inc+1] = cost[base][k] + score;
+                            action[base+1][k+inc+1] = 16 * idx + inc;
+                            board[base+1][k+inc+1] = cur_board;
+                        }
+                        for(int l=0;l<9;l++){
+                            cur_board[pos+dd[l]] += MOD - stump[l];
+                            cur_board[pos+dd[l]] %= MOD;
+                        }
+                        ++idx;
                     }
                 }
             }
         }
-        if(best_score > 0){
-            actions.push_back(best_action);
-            for(int i=0;i<3;i++){
-                for(int j=0;j<3;j++){
-                    a[best_action.p+i][best_action.q+j] += stump[best_action.m][i][j];
-                    a[best_action.p+i][best_action.q+j] %= MOD;
-                }
-            }
-        }
     }
-    long long first_sum = 0;
-    for(int i=0;i<N;i++){
-        for(int j=0;j<N;j++){
-            first_sum += a[i][j];
-        }
-    }
-    XorShift rnd(1234567891);
-    const double start_time = timer.msec();
-    const double end_time = 1950.0;
-    double cur_time = start_time;
-    const double initial_temp = 1000000000;
-    const double final_temp = 0.001;
     long long best_score = 0;
-    vector<Action> best_actions = actions;
-    Action tmp_action = Action(0, 0, 0);
-    Action tmp_action2 = Action(0, 0, 0);
-    long long cur_score = 0;
-
-    while(timer.msec() < end_time){
-        int p = rnd() % 16;
-        long long dif_score = 0;
-        int chg_idx = -1;
-        int chg_idx2 = -1;
-        if(p == 0 && actions.size() < K){
-            actions.emplace_back(rnd() % M, rnd() % (N - 2), rnd() % (N - 2));
-            for(int i=0;i<3;i++){
-                for(int j=0;j<3;j++){
-                    dif_score -= a[actions.back().p+i][actions.back().q+j];
-                    a[actions.back().p+i][actions.back().q+j] += stump[actions.back().m][i][j];
-                    a[actions.back().p+i][actions.back().q+j] %= MOD;
-                    dif_score += a[actions.back().p+i][actions.back().q+j];
-                }
-            }
-        } else if(p == 1 && actions.size() >= 2){
-            int idx = rnd() % actions.size();
-            if(idx != actions.size() - 1) swap(actions[idx], actions.back());
-            for(int i=0;i<3;i++){
-                for(int j=0;j<3;j++){
-                    dif_score -= a[actions.back().p+i][actions.back().q+j];
-                    a[actions.back().p+i][actions.back().q+j] += MOD - stump[actions.back().m][i][j];
-                    a[actions.back().p+i][actions.back().q+j] %= MOD;
-                    dif_score += a[actions.back().p+i][actions.back().q+j];
-                }
-            }
-        } else {
-            chg_idx = rnd() % actions.size();
-            if(actions.size() >= 10 && rnd() % 4 == 0){
-                chg_idx2 = rnd() % actions.size();
-                while(chg_idx2 == chg_idx) chg_idx2 = rnd() % actions.size();
-            }
-            tmp_action = actions[chg_idx];
-            if(chg_idx2 != -1) tmp_action2 = actions[chg_idx2];
-            actions[chg_idx] = Action(rnd() % M, rnd() % (N - 2), rnd() % (N - 2));
-            for(int i=0;i<3;i++){
-                for(int j=0;j<3;j++){
-                    dif_score -= a[tmp_action.p+i][tmp_action.q+j];
-                    a[tmp_action.p+i][tmp_action.q+j] += MOD - stump[tmp_action.m][i][j];
-                    a[tmp_action.p+i][tmp_action.q+j] %= MOD;
-                    dif_score += a[tmp_action.p+i][tmp_action.q+j];
-                    dif_score -= a[actions[chg_idx].p+i][actions[chg_idx].q+j];
-                    a[actions[chg_idx].p+i][actions[chg_idx].q+j] += stump[actions[chg_idx].m][i][j];
-                    a[actions[chg_idx].p+i][actions[chg_idx].q+j] %= MOD;
-                    dif_score += a[actions[chg_idx].p+i][actions[chg_idx].q+j];
-                    if(chg_idx2 != -1){
-                        dif_score -= a[tmp_action2.p+i][tmp_action2.q+j];
-                        a[tmp_action2.p+i][tmp_action2.q+j] += MOD - stump[tmp_action2.m][i][j];
-                        a[tmp_action2.p+i][tmp_action2.q+j] %= MOD;
-                        dif_score += a[tmp_action2.p+i][tmp_action2.q+j];
-                        dif_score -= a[actions[chg_idx2].p+i][actions[chg_idx2].q+j];
-                        a[actions[chg_idx2].p+i][actions[chg_idx2].q+j] += stump[actions[chg_idx2].m][i][j];
-                        a[actions[chg_idx2].p+i][actions[chg_idx2].q+j] %= MOD;
-                        dif_score += a[actions[chg_idx2].p+i][actions[chg_idx2].q+j];
-                    }
-                }
-            }
-        }
-        const double ratio = (timer.msec() - start_time) / (end_time - start_time);
-        const double temperature = initial_temp + (final_temp - initial_temp) * ratio;
-        double delta = dif_score;
-        if(delta > 0 || bernoulli_distribution(exp(delta/temperature))(rnd)){
-            cur_score += delta;
-            if(p == 1 && chg_idx == -1){
-                actions.pop_back();
-            }
-            if(cur_score > best_score){
-                best_score = cur_score;
-                best_actions = actions;
-            }
-        } else {
-            if(chg_idx != -1){
-                for(int i=0;i<3;i++){
-                    for(int j=0;j<3;j++){
-                        a[actions[chg_idx].p+i][actions[chg_idx].q+j] += MOD - stump[actions[chg_idx].m][i][j];
-                        a[actions[chg_idx].p+i][actions[chg_idx].q+j] %= MOD;
-                    }
-                }
-                actions[chg_idx] = tmp_action;
-                for(int i=0;i<3;i++){
-                    for(int j=0;j<3;j++){
-                        a[actions[chg_idx].p+i][actions[chg_idx].q+j] += stump[actions[chg_idx].m][i][j];
-                        a[actions[chg_idx].p+i][actions[chg_idx].q+j] %= MOD;
-                    }
-                }
-                if(chg_idx2 != -1){
-                    for(int i=0;i<3;i++){
-                        for(int j=0;j<3;j++){
-                            a[actions[chg_idx2].p+i][actions[chg_idx2].q+j] += MOD - stump[actions[chg_idx2].m][i][j];
-                            a[actions[chg_idx2].p+i][actions[chg_idx2].q+j] %= MOD;
-                        }
-                    }
-                    actions[chg_idx2] = tmp_action2;
-                    for(int i=0;i<3;i++){
-                        for(int j=0;j<3;j++){
-                            a[actions[chg_idx2].p+i][actions[chg_idx2].q+j] += stump[actions[chg_idx2].m][i][j];
-                            a[actions[chg_idx2].p+i][actions[chg_idx2].q+j] %= MOD;
-                        }
-                    }
-                }
-            } else if (p == 0){
-                for(int i=0;i<3;i++){
-                    for(int j=0;j<3;j++){
-                        a[actions.back().p+i][actions.back().q+j] += MOD - stump[actions.back().m][i][j];
-                        a[actions.back().p+i][actions.back().q+j] %= MOD;
-                    }
-                }
-                actions.pop_back();
-            } else {
-                for(int i=0;i<3;i++){
-                    for(int j=0;j<3;j++){
-                        a[actions.back().p+i][actions.back().q+j] += stump[actions.back().m][i][j];
-                        a[actions.back().p+i][actions.back().q+j] %= MOD;
-                    }
-                }
-            }
-        }
-
-        cur_time = timer.msec();
-    }
-    cerr << "score: " << best_score << endl;
-
-
-    // a = initial_a;
-    // for(auto& act : best_actions){
-    //     for(int i=0;i<3;i++){
-    //         for(int j=0;j<3;j++){
-    //             a[act.p+i][act.q+j] += stump[act.m][i][j];
-    //             a[act.p+i][act.q+j] %= MOD;
-    //         }
-    //     }
-    // }
-    long long sum = 0;
-    for(int i=0;i<N;i++){
-        for(int j=0;j<N;j++){
-            sum += a[i][j];
-        }
-    }
-/*
-    for(int _=best_actions.size();_<K;_++){
-        long long best_score = 0;
-        Action best_action = Action(0, 0, 0);
-        for(int p=0;p<N-2;p++){
-            for(int q=0;q<N-2;q++){
-                long long base_score = 0;
-                for(int i=0;i<3;i++){
-                    for(int j=0;j<3;j++){
-                        base_score -= a[p+i][q+j];
-                    }
-                }
-                for(int m=0;m<M;m++){
-                    long long score = base_score;
-                    for(int i=0;i<3;i++){
-                        for(int j=0;j<3;j++){
-                            a[p+i][q+j] += stump[m][i][j];
-                            a[p+i][q+j] %= MOD;
-                            score += a[p+i][q+j];
-                            a[p+i][q+j] += MOD - stump[m][i][j];
-                            a[p+i][q+j] %= MOD;
-                        }
-                    }
-                    if(score > best_score){
-                        best_score = score;
-                        best_action = Action(m, p, q);
-                    }
-                }
-            }
-        }
-        if(best_score > 0){
-            best_actions.push_back(best_action);
-            for(int i=0;i<3;i++){
-                for(int j=0;j<3;j++){
-                    a[best_action.p+i][best_action.q+j] += stump[best_action.m][i][j];
-                    a[best_action.p+i][best_action.q+j] %= MOD;
-                }
-            }
-        }
-    }
-*/
-    cerr << "score = " << sum << ", " << first_sum + cur_score << endl;;
-    for(int i=0;i<N;i++){
-        for(int j=0;j<N;j++){
-            cerr << a[i][j] << " ";
-        }
-        cerr << endl;
-    }
-    for(int _=best_actions.size();_<K;_++){
-        long long best_score = 0;
-        Action best_action = Action(0, 0, 0);
-        for(int p=0;p<N-2;p++){
-            for(int q=0;q<N-2;q++){
-                long long base_score = 0;
-                for(int i=0;i<3;i++){
-                    for(int j=0;j<3;j++){
-                        base_score -= a[p+i][q+j];
-                    }
-                }
-                for(int m=0;m<M;m++){
-                    long long score = base_score;
-                    for(int i=0;i<3;i++){
-                        for(int j=0;j<3;j++){
-                            a[p+i][q+j] += stump[m][i][j];
-                            a[p+i][q+j] %= MOD;
-                            score += a[p+i][q+j];
-                            a[p+i][q+j] += MOD - stump[m][i][j];
-                            a[p+i][q+j] %= MOD;
-                        }
-                    }
-                    if(score > best_score){
-                        best_score = score;
-                        best_action = Action(m, p, q);
-                    }
-                }
-            }
-        }
-        if(best_score > 0){
-            best_actions.push_back(best_action);
-            for(int i=0;i<3;i++){
-                for(int j=0;j<3;j++){
-                    a[best_action.p+i][best_action.q+j] += stump[best_action.m][i][j];
-                    a[best_action.p+i][best_action.q+j] %= MOD;
-                }
-            }
+    int best_stump_num = 0;
+    for(int i=0;i<=N*N;i++){
+        cerr << i << " " << cost[49][i] << endl;
+        if(cost[49][i] > best_score){
+            best_score = cost[49][i];
+            best_stump_num = i;
         }
     }
     cerr << best_score << endl;
-    cout << best_actions.size() << endl;
-    for(auto& a : best_actions) cout << a << endl;
+    cout << best_stump_num << endl;
+    int cur_idx = 49;
+    while(cur_idx > 0){
+        if(action[cur_idx][best_stump_num] == -1){
+            --cur_idx;
+            continue;
+        }
+        int stump_idx = action[cur_idx][best_stump_num] / 16;
+        int inc = action[cur_idx][best_stump_num] % 16;
+        for(auto& v : merged_stump[inc][stump_idx].first){
+            cout << v << " " << (cur_idx-1)/7 << " " << (cur_idx-1)%7 << endl;
+        }
+        best_stump_num -= inc + 1;
+        --cur_idx;
+    }
 }
