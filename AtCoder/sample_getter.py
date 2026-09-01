@@ -7,6 +7,7 @@ import os
 import re
 import sys
 import requests
+import time
 from bs4 import BeautifulSoup
 
 def gen_login_info(session):
@@ -43,7 +44,7 @@ def log_in():
     session.post('https://atcoder.jp/login', data=gen_login_info(session))
     return session
 
-def get_samples(session, contest_name, problem_id, problem_url):
+def get_samples(session, contest_name: str, problem_id: str, problem_url: str):
     '''
     指定されたIDのサンプルをファイルに書き出す
     Parameters
@@ -57,6 +58,8 @@ def get_samples(session, contest_name, problem_id, problem_url):
     problem_url : str
         問題URL
     '''
+    # Too many requests 回避用
+    time.sleep(1)
     html = session.get(problem_url)
     soup = BeautifulSoup(html.text, 'html.parser')
     if not os.path.isdir(contest_name):
@@ -70,7 +73,8 @@ def get_samples(session, contest_name, problem_id, problem_url):
             f.write(tag.find('pre').text.replace('\r', ''))
         case_id += 1
 
-def search_problem(contest_name):
+
+def search_problem(contest_name: str):
     '''
     指定されたコンテストの全問題のサンプルをファイルに書き出す
     Parameters
